@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloodNet — Tableau de bord</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+
+    <!-- SYSTEME DE NOTIFICATION TOAST -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <h1 class="logo">Blood<span>Net</span></h1>
+            <span class="hospital-name"><i class="fa-solid fa-hospital" aria-hidden="true"></i> Hôpital Central de Yaoundé</span>
+        </div>
+        <div class="topbar-right">
+            <button class="icon-btn" id="notif-btn" aria-label="Notifications (3 non lues)">
+                <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                <span class="badge-count">3</span>
+            </button>
+            <div class="user-avatar" title="Session : NG">NG</div>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- SIDEBAR -->
+<aside class="sidebar">
+    <nav class="sidebar-nav">
+        <!-- Ajout de data-target="dashboard" -->
+        <a href="#" class="nav-item active" data-target="dashboard" aria-label="Dashboard" title="Dashboard">
+            <i class="fa-solid fa-chart-pie" aria-hidden="true"></i>
+        </a>
+        <!-- Ajout de data-target="orders" -->
+        <a href="#" class="nav-item" data-target="orders" aria-label="Commandes B2B" title="Commandes B2B">
+            <i class="fa-solid fa-truck-medical" aria-hidden="true"></i>
+        </a>
+        <!-- Ajout de data-target="sos" -->
+        <a href="#" class="nav-item" data-target="sos" aria-label="Alertes SOS" title="Alertes SOS">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        </a>
+    </nav>
+    <a href="/logout" class="nav-item logout" aria-label="Déconnexion" title="Déconnexion">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+    </a>
+</aside>
+
+        <!-- MAIN CONTENT (RESPONSIVE SPLIT SCREEN) -->
+        <main class="main-content">
+            <!-- ONGLET 1 : TABLEAU DE BORD (Stock & Carte) -->
+            <section id="section-dashboard" class="tab-content active">
+            <!-- SECTEUR GAUCHE : STOCK INTERNE -->
+            <section class="left-pane">
+                <div class="pane-header">
+                    <h2>Tableau de bord</h2>
+                    <p class="subtitle">Gestion du stock interne & statut global</p>
+                </div>
+
+                <!-- CARTE STATUT RAPIDE -->
+                <div class="stat-cards-grid" id="stat-cards-container">
+                    <!-- Généré / Mis à jour dynamiquement en JS -->
+                </div>
+
+                <!-- TABLEAU DE STOCK AGRÉGÉ -->
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>Stock agrégé interne</h3>
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                            <input type="text" id="stock-search" placeholder="Filtrer par groupe..." aria-label="Filtrer le stock interne">
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Groupe</th>
+                                    <th>Poches</th>
+                                    <th>Volume Cumulé</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stock-table-body">
+                                <!-- Généré dynamiquement en JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTEUR DROIT : CARTE RESEAU -->
+            <section class="right-pane">
+                <div class="pane-header">
+                    <h2>Réseau Hospitalier Connecté</h2>
+                    <p class="subtitle">Disponibilités en temps réel des établissements voisins</p>
+                </div>
+                <div id="map-container" role="region" aria-label="Carte interactive des hôpitaux"></div>
+            </section>
+        </section>
+
+        <!-- ONGLET 2 : COMMANDES B2B -->
+    <section id="section-orders" class="tab-content" style="display: none;">
+        <div class="section-header">
+            <h2>Gestion des Commandes B2B</h2>
+            <button class="btn-primary" id="btn-new-order">+ Nouvelle Demande SOS</button>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Partenaire</th>
+                    <th>Groupe</th>
+                    <th>Quantité</th>
+                    <th>Urgence</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="orders-table-body">
+                <!-- Rempli en JS -->
+            </tbody>
+        </table>
+    </section>
+    
+        </main>
+    </div>
+
+    <!-- BOUTON FLOTTANT (FAB) -->
+    <button class="fab-btn" id="fab-add" aria-label="Enregistrer une nouvelle poche de sang" title="Ajouter une poche">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+    </button>
+
+    <!-- MODAL D'AJOUT -->
+<div class="modal-overlay" id="modal-add" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Enregistrer une poche</h3>
+            <button class="close-btn" id="close-modal" aria-label="Fermer la fenêtre">&times;</button>
+        </div>
+        <form id="add-blood-form">
+            <div class="form-group">
+                <label for="blood-group">Groupe Sanguin</label>
+                <select id="blood-group" required>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="categorie">Composant</label>
+                <select id="categorie" required>
+                    <option value="SANG_TOTAL">Sang total</option>
+                    <option value="PLASMA">Plasma</option>
+                    <option value="PLAQUETTES">Plaquettes</option>
+                </select>
+            </div>
+            <!-- Champ ID Donneur (Optionnel) -->
+            <div class="form-group">
+                <label for="donor-id">ID Donneur (Optionnel)</label>
+                <input type="text" id="donor-id" placeholder="Ex: UUID du donneur">
+            </div>
+            <div class="form-group">
+                <label for="volume">Volume (mL)</label>
+                <input type="number" id="volume" value="450" min="200" max="500" required>
+            </div>
+            <div class="form-group">
+                <label for="date-collection">Date de Prélèvement</label>
+                <input type="date" id="date-collection" required>
+            </div>
+            <p class="info-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> La date d'expiration (42 jours) sera calculée automatiquement par le serveur.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancel-modal">Annuler</button>
+                <button type="submit" class="btn-primary" id="submit-btn">Ajouter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

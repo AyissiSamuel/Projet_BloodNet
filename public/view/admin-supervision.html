@@ -1,0 +1,81 @@
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h2>Supervision Régionale des Stocks & Hôpitaux</h2>
+            <p class="subtitle">Vue d'ensemble et régulation de la banque de sang par zone sanitaire</p>
+        </div>
+        
+        <!-- FILTRE PAR RÉGION -->
+        <div class="filter-box" style="display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 15px; border-radius: 8px; border: 1px solid #cbd5e1;">
+            <i class="fa-solid fa-map-location-dot" style="color: #dc2626;"></i>
+            <label for="admin-region-select" style="font-weight: 600; font-size: 0.9rem;">Région :</label>
+            <select id="admin-region-select" style="border: none; outline: none; font-weight: 600; color: #0f172a; cursor: pointer;">
+                <option value="TOUTES">Toutes les Régions</option>
+                <option value="Centre">Centre (Yaoundé)</option>
+                <option value="Littoral">Littoral (Douala)</option>
+                <option value="Ouest">Ouest (Bafoussam)</option>
+                <option value="Sud">Sud (Ebolowa)</option>
+                <option value="Nord">Nord (Garoua)</option>
+                <option value="Extrême-Nord">Extrême-Nord (Maroua)</option>
+                <option value="Adamaoua">Adamaoua (Ngaoundéré)</option>
+                <option value="Est">Est (Bertoua)</option>
+                <option value="Nord-Ouest">Nord-Ouest (Bamenda)</option>
+                <option value="Sud-Ouest">Sud-Ouest (Buea)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- STOCK CONSOLIDÉ RÉGIONAL (CARTES PAR GROUPE SANGUIN) -->
+    <div style="margin-top: 1.5rem;">
+        <h3 style="font-size: 1.1rem; color: #1e293b; margin-bottom: 0.8rem;">
+            <i class="fa-solid fa-cubes-stacked"></i> Stock Consolidé de la Zone (<span id="selected-region-label">Toutes les Régions</span>)
+        </h3>
+        <div class="blood-group-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem;" id="regional-stock-cards">
+            <!-- Rempli dynamiquement en JS (Cartes O+, O-, A+, etc.) -->
+        </div>
+    </div>
+
+    <!-- TABLEAU DE BORD DES HÔPITAUX DE LA ZONE -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3><i class="fa-solid fa-hospital-user"></i> Établissements de la Zone & Activité</h3>
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="hospital-search-input" placeholder="Rechercher un hôpital...">
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Nom de l'Hôpital</th>
+                        <th>Région</th>
+                        <th>Téléphone</th>
+                        <th>Total Poches en Stock</th>
+                        <th>Dernière Activité</th>
+                        <th>Statut Agrément</th>
+                        <th>Actions / Détails</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-hospitals-table-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE : DÉTAIL DU STOCK D'UN HÔPITAL SÉLECTIONNÉ -->
+<div class="modal-overlay" id="modal-hospital-detail" style="display: none;">
+    <div class="modal-content" style="max-width: 700px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-hospital"></i> Audit Stock — <span id="modal-hospital-name">Hôpital</span></h3>
+            <button class="close-btn" id="close-hospital-detail-modal">&times;</button>
+        </div>
+        <div style="padding: 1rem 0;">
+            <div id="hospital-stock-breakdown" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                <!-- Rempli dynamiquement avec la ventilation exacte du stock de cet hôpital -->
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,98 @@
+<!-- STATISTIQUES RAPIDES (KPIs) -->
+<section class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-icon red">
+            <i class="fa-solid fa-droplet"></i>
+        </div>
+        <div class="kpi-info">
+            <span class="kpi-title">Poches en Stock</span>
+            <h3 class="kpi-value" id="kpi-total-stock">--</h3>
+            <span class="kpi-status status-ok"><i class="fa-solid fa-circle-check"></i> Niveau global stable</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-icon orange">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="kpi-info">
+            <span class="kpi-title">Stock Critique</span>
+            <h3 class="kpi-value" id="kpi-critical-stock">--</h3>
+            <span class="kpi-status status-alert"><i class="fa-solid fa-triangle-exclamation"></i> Groupes O- et A-</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-icon blue">
+            <i class="fa-solid fa-truck-medical"></i>
+        </div>
+        <div class="kpi-info">
+            <span class="kpi-title">Commandes en Cours</span>
+            <h3 class="kpi-value" id="kpi-pending-orders">--</h3>
+            <span class="kpi-status"><i class="fa-solid fa-clock"></i> 2 livraisons par drone</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-icon green">
+            <i class="fa-solid fa-user-plus"></i>
+        </div>
+        <div class="kpi-info">
+            <span class="kpi-title">Donneurs Actifs</span>
+            <h3 class="kpi-value" id="kpi-active-donors">--</h3>
+            <span class="kpi-status status-ok"><i class="fa-solid fa-arrow-up"></i> +12 cette semaine</span>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION PRINCIPALE : GRAPHIQUE STOCK & CARTE MAP -->
+<section class="dashboard-main-grid">
+    <!-- Graphique du Stock de Sang par Groupe -->
+    <div class="card chart-card">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-chart-bar"></i> État du Stock par Groupe Sanguin</h2>
+            <button class="btn-sm btn-outline" id="refresh-stock-btn">
+                <i class="fa-solid fa-rotate-right"></i> Actualiser
+            </button>
+        </div>
+        <div class="card-body">
+            <canvas id="stockChart" height="250"></canvas>
+        </div>
+    </div>
+
+    <!-- Carte Interactive des Banques Interconnectées -->
+    <div class="card map-card">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-map-location-dot"></i> Réseau & Banques Proches</h2>
+        </div>
+        <div class="card-body map-container">
+            <div id="map" style="height: 250px; width: 100%; border-radius: 8px;"></div>
+        </div>
+    </div>
+</section>
+
+<!-- DERNIÈRES ACTIVITÉS / ALERTES -->
+<section class="card recent-activity-card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-list-check"></i> Mouvements Récents & Demandes Urgentes</h2>
+    </div>
+    <div class="card-body">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Réf / Groupe</th>
+                    <th>Établissement Demandeur</th>
+                    <th>Quantité</th>
+                    <th>Statut</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="recent-orders-tbody">
+                <!-- Injecté dynamiquement par initStockModule / initOrdersModule -->
+                <tr>
+                    <td colspan="5" class="text-center">Chargement des données...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>

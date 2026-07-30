@@ -1,0 +1,109 @@
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h2>Paramètres & Configurations</h2>
+            <p class="subtitle">Gestion du profil, préférences d'affichage et contrôle des accès (RBAC)</p>
+        </div>
+    </div>
+
+    <!-- SECTIONS PARAMÈTRES (GRID LAYOUT) -->
+    <div class="settings-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-top: 1.5rem;">
+        
+        <!-- MENU NAVIGATION DES PARAMÈTRES -->
+        <div class="card-box" style="align-self: start;">
+            <ul class="settings-menu" style="list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 0.5rem;">
+                    <button class="settings-nav-btn active" data-pane="pane-profile" style="width: 100%; text-align: left; padding: 10px 15px; border: none; background: #f1f5f9; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        <i class="fa-solid fa-hospital" style="margin-right: 8px;"></i> Profil Établissement
+                    </button>
+                </li>
+                <li style="margin-bottom: 0.5rem;">
+                    <button class="settings-nav-btn" data-pane="pane-style" style="width: 100%; text-align: left; padding: 10px 15px; border: none; background: transparent; border-radius: 6px; cursor: pointer; color: #64748b;">
+                        <i class="fa-solid fa-palette" style="margin-right: 8px;"></i> Apparence & Style
+                    </button>
+                </li>
+                <li>
+                    <button class="settings-nav-btn" data-pane="pane-access" style="width: 100%; text-align: left; padding: 10px 15px; border: none; background: transparent; border-radius: 6px; cursor: pointer; color: #64748b;">
+                        <i class="fa-solid fa-user-shield" style="margin-right: 8px;"></i> Utilisateurs & Permissions
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- CONTENU DU PANNEAU DE CONFIGURATION -->
+        <div class="card-box">
+            
+            <!-- PANNEAU 1 : PROFIL ÉTABLISSEMENT -->
+            <div id="pane-profile" class="settings-pane">
+                <h3>Informations de l'Hôpital</h3>
+                <form id="form-profile-settings" style="margin-top: 1rem;">
+                    <div class="form-group">
+                        <label for="setting-hospital-name">Nom de l'établissement</label>
+                        <input type="text" id="setting-hospital-name" value="Hôpital Central de Yaoundé" required>
+                    </div>
+                    <div class="form-row" style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="setting-hospital-phone">Téléphone d'Urgence</label>
+                            <input type="tel" id="setting-hospital-phone" value="+237 222 23 34 56">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="setting-hospital-region">Région / Ville</label>
+                            <input type="text" id="setting-hospital-region" value="Centre - Yaoundé" readonly style="background: #f8fafc;">
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.5rem;">
+                        <button type="submit" class="btn-primary">Enregistrer les Modifications</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- PANNEAU 2 : APPARENCE & STYLE -->
+            <div id="pane-style" class="settings-pane" style="display: none;">
+                <h3>Options de Style & Interface</h3>
+                <div style="margin-top: 1rem;">
+                    <div class="form-group">
+                        <label>Thème de l'Application</label>
+                        <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                <input type="radio" name="theme-mode" value="light" checked> Clair (Standard)
+                            </label>
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                <input type="radio" name="theme-mode" value="dark"> Sombre (Mode Nuit)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label for="setting-density">Densité de l'Affichage des Tableaux</label>
+                        <select id="setting-density" style="margin-top: 0.5rem;">
+                            <option value="comfortable">Confortable (Grand espacement)</option>
+                            <option value="compact">Compact (Plus de lignes visibles)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANNEAU 3 : RESTRICTIONS D'ACCÈS & ROLES (core_identity.utilisateurs) -->
+            <div id="pane-access" class="settings-pane" style="display: none;">
+                <h3>Gestion des Utilisateurs & Rôles</h3>
+                <p class="subtitle" style="margin-bottom: 1rem;">Contrôle des autorisations d'accès (`core_identity.utilisateurs`)</p>
+
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Utilisateur</th>
+                                <th>Rôle</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-access-table-body">
+                            <!-- Rempli en JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

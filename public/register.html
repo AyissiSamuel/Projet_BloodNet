@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloodNet — Demande d'Agrément / Inscription Établissement</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #F8F9FA; font-family: system-ui, -apple-system, sans-serif; padding: 20px 0; }
+        .register-card { background: #FFF; width: 100%; max-width: 580px; padding: 30px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .register-header { text-align: center; margin-bottom: 25px; }
+        .register-header h1 { font-size: 1.8rem; color: #0A192F; margin: 0 0 5px 0; }
+        .register-header h1 span { color: #DC2626; }
+        .register-header p { font-size: 0.85rem; color: #64748B; margin: 0; }
+        .form-section-title { font-size: 0.95rem; font-weight: 700; color: #1E293B; margin: 20px 0 10px 0; border-bottom: 1px solid #E2E8F0; padding-bottom: 5px; }
+        .form-row { display: flex; gap: 15px; }
+        .form-group { flex: 1; margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 6px; box-sizing: border-box; }
+        .btn-block { width: 100%; padding: 12px; margin-top: 15px; background: #DC2626; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        .alert-box { padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 15px; display: none; }
+        .alert-danger { background: #FEE2E2; color: #991B1B; }
+        .alert-success { background: #DCFCE7; color: #166534; }
+    </style>
+</head>
+<body>
+
+    <div class="register-card">
+        <div class="login-header register-header">
+            <h1>Blood<span>Net</span></h1>
+            <p>Inscription & Demande de Raccordement Réseau</p>
+        </div>
+
+        <div id="alert-box" class="alert-box"></div>
+
+        <form id="register-form">
+            <!-- SECTION 1 : INFORMATIONS SUR L'ÉTABLISSEMENT -->
+            <div class="form-section-title"><i class="fa-solid fa-hospital"></i> Établissement Hospitalier</div>
+            
+            <div class="form-group">
+                <label for="nom_hopital">Nom Officiel de l'Hôpital / Banque de Sang</label>
+                <input type="text" id="nom_hopital" placeholder="Ex: Hôpital Régional de Douala" required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="region">Région</label>
+                    <select id="region" required>
+                        <option value="">-- Sélectionner --</option>
+                        <option value="Centre">Centre</option>
+                        <option value="Littoral">Littoral</option>
+                        <option value="Ouest">Ouest</option>
+                        <option value="Sud">Sud</option>
+                        <option value="Nord">Nord</option>
+                        <option value="Extrême-Nord">Extrême-Nord</option>
+                        <option value="Adamaoua">Adamaoua</option>
+                        <option value="Est">Est</option>
+                        <option value="Nord-Ouest">Nord-Ouest</option>
+                        <option value="Sud-Ouest">Sud-Ouest</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="telephone_hopital">Téléphone Officiel</label>
+                    <input type="tel" id="telephone_hopital" placeholder="+237 6..." required>
+                </div>
+            </div>
+
+            <!-- SECTION 2 : COMPTE ADMINISTRATEUR LOCAL -->
+            <div class="form-section-title"><i class="fa-solid fa-user-shield"></i> Administrateur Référent</div>
+
+            <div class="form-group">
+                <label for="nom_admin">Nom & Prénom du Responsable</label>
+                <input type="text" id="nom_admin" placeholder="Dr. / Mme / M." required>
+            </div>
+
+            <div class="form-group">
+                <label for="email_admin">Email Professionnel (Identifiant de connexion)</label>
+                <input type="email" id="email_admin" placeholder="admin@hopital.cm" required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="password">Mot de passe</label>
+                    <input type="password" id="password" required placeholder="••••••••">
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">Confirmer le mot de passe</label>
+                    <input type="password" id="confirm_password" required placeholder="••••••••">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary btn-block" id="register-btn">Soumettre la Demande</button>
+        </form>
+
+        <div style="text-align: center; margin-top: 15px;">
+            <a href="/login.html" style="color: #64748B; font-size: 0.85rem; text-decoration: none;">Déjà inscrit ? Se connecter</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("register-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const alertBox = document.getElementById("alert-box");
+            const btn = document.getElementById("register-btn");
+
+            const password = document.getElementById("password").value;
+            const confirm = document.getElementById("confirm_password").value;
+
+            if (password !== confirm) {
+                alertBox.className = "alert-box alert-danger";
+                alertBox.textContent = "Les mots de passe ne correspondent pas.";
+                alertBox.style.display = "block";
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Traitement...`;
+
+            const payload = {
+                nom_hopital: document.getElementById("nom_hopital").value,
+                region: document.getElementById("region").value,
+                telephone: document.getElementById("telephone_hopital").value,
+                nom_admin: document.getElementById("nom_admin").value,
+                email: document.getElementById("email_admin").value,
+                mot_de_passe: password
+            };
+
+            try {
+                const res = await fetch('/api/auth/register-hospital', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    alertBox.className = "alert-box alert-success";
+                    alertBox.textContent = "Demande envoyée ! Votre compte sera activé après validation administrative.";
+                    alertBox.style.display = "block";
+                    document.getElementById("register-form").reset();
+                } else {
+                    throw new Error(data.message || "Erreur lors de l'inscription.");
+                }
+            } catch (err) {
+                alertBox.className = "alert-box alert-danger";
+                alertBox.textContent = err.message;
+                alertBox.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Soumettre la Demande";
+            }
+        });
+    </script>
+</body>
+</html>

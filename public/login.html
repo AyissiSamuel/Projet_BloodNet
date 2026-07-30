@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloodNet — Connexion Établissement</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #F8F9FA; font-family: system-ui, -apple-system, sans-serif; margin: 0; }
+        .login-card { background: #FFF; width: 100%; max-width: 400px; padding: 30px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .login-header { text-align: center; margin-bottom: 25px; }
+        .login-header h1 { font-size: 1.8rem; color: #0A192F; margin: 0 0 5px 0; }
+        .login-header h1 span { color: #DC2626; }
+        .login-header p { font-size: 0.85rem; color: #64748B; margin: 0; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 5px; }
+        .form-group input { width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 6px; box-sizing: border-box; }
+        .btn-block { width: 100%; padding: 12px; margin-top: 10px; background: #DC2626; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        .btn-block:disabled { opacity: 0.6; cursor: not-allowed; }
+        .error-message { background: #FEE2E2; color: #991B1B; padding: 10px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 15px; display: none; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="login-header">
+            <h1>Blood<span>Net</span></h1>
+            <p>Plateforme Réseau de Gestion des Banques de Sang</p>
+        </div>
+
+        <div id="error-alert" class="error-message"></div>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label for="email">Identifiant / Email</label>
+                <input type="email" id="email" placeholder="ex: agent@hopital.cm" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-primary btn-block" id="login-btn">Se connecter</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById("login-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const btn = document.getElementById("login-btn");
+            const errorAlert = document.getElementById("error-alert");
+            
+            errorAlert.style.display = "none";
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Connexion...`;
+
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Sauvegarde du Token JWT, des données Utilisateur et de l'Hôpital
+                    localStorage.setItem('bloodnet_token', data.token);
+                    
+                    // Aligné avec vos colonnes (id_utilisateur, nom, role, etc.)
+                    localStorage.setItem('user_info', JSON.stringify({
+                        id_utilisateur: data.user.id_utilisateur,
+                        nom: data.user.nom,
+                        email: data.user.email,
+                        role: data.user.role // 'SUPER_ADMIN', 'ADMIN_HOPITAL' ou 'PERSONNEL'
+                    }));
+
+                    localStorage.setItem('hospital_info', JSON.stringify(data.hospital || {}));
+
+                    // Redirection vers le Shell SPA principal
+                    window.location.href = "/index.html";
+                } else {
+                    errorAlert.textContent = data.message || "Identifiants ou statut de compte invalide.";
+                    errorAlert.style.display = "block";
+                }
+            } catch (err) {
+                console.error("Erreur connexion :", err);
+                errorAlert.textContent = "Impossible de joindre le serveur backend.";
+                errorAlert.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Se connecter";
+            }
+        });
+    </script>
+</body>
+</html>

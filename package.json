@@ -1,0 +1,37 @@
+{
+  "name": "bloodnet",
+  "version": "1.0.0",
+  "description": "plateforme numérique de gestion des dons de sang",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "pfe",
+    "bloodbank",
+    "drone",
+    "node",
+    "postgres"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "bonjour": "^3.5.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "ml-cart": "^2.1.1",
+    "morgan": "^1.11.0",
+    "node-cron": "^4.6.0",
+    "pg": "^8.22.0",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

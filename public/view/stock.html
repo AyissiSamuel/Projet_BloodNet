@@ -1,0 +1,157 @@
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h2>Gestion Complète du Stock</h2>
+            <p class="subtitle">Suivi en temps réel, répartition par composants et historique des mouvements</p>
+        </div>
+        <button class="btn-primary" id="btn-open-add-modal">
+            <i class="fa-solid fa-plus"></i> Enregistrer une poche
+        </button>
+    </div>
+
+    <!-- CARTE DE STATISTIQUES RAPIDES -->
+    <div class="stat-cards-grid" id="stock-stat-cards">
+        <!-- Rempli dynamiquement en JS -->
+    </div>
+
+    <!-- SECTION SECTION : GRAPHIQUE + TABLEAU DE STOCK -->
+    <div class="stock-grid-layout" style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-top: 1.5rem;">
+        
+        <!-- GRAPHIQUE DES VOLUMES -->
+        <div class="card-box">
+            <h3><i class="fa-solid fa-chart-pie"></i> Répartition par Groupe</h3>
+            <div style="position: relative; height: 280px; margin-top: 1rem;">
+                <canvas id="stockChart"></canvas>
+            </div>
+        </div>
+
+        <!-- TABLEAU AGRÉGÉ DU STOCK -->
+        <div class="card-box">
+            <div class="table-header">
+                <h3><i class="fa-solid fa-boxes-stacked"></i> Stock Actuel</h3>
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="stock-search-input" placeholder="Filtrer un groupe...">
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Groupe</th>
+                            <th>Total Poches</th>
+                            <th>Volume Total</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stock-table-body">
+                        <!-- Rempli en JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION : HISTORIQUE DES MOUVEMENTS -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> Historique des Mouvements (Entrées / Sorties)</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date & Heure</th>
+                        <th>Type Mouvement</th>
+                        <th>Groupe</th>
+                        <th>Quantité</th>
+                        <th>Motif / Détails</th>
+                        <th>Opérateur</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE D'AJOUT DE POCHE -->
+<div class="modal-overlay" id="modal-add-stock" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Enregistrer une Nouvelle Poche</h3>
+            <button class="close-btn" id="close-add-modal">&times;</button>
+        </div>
+        <form id="form-add-stock">
+            <div class="form-group">
+                <label for="add-blood-group">Groupe Sanguin</label>
+                <select id="add-blood-group" required>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="add-component">Composant Sanguin</label>
+                <select id="add-component" required>
+                    <option value="SANG_TOTAL">Sang Total</option>
+                    <option value="PLASMA">Plasma</option>
+                    <option value="PLAQUETTES">Plaquettes</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="add-volume">Volume (mL)</label>
+                <input type="number" id="add-volume" value="450" min="100" max="500" required>
+            </div>
+            <div class="form-group">
+                <label for="add-collection-date">Date de Prélèvement</label>
+                <input type="date" id="add-collection-date" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancel-add-modal">Annuler</button>
+                <button type="submit" class="btn-primary" id="submit-add-btn">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODALE DE SORTIE DE POCHE (DÉSTOCKAGE FIFO) -->
+<div class="modal-overlay" id="modal-use-stock" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Sortie de Stock — Groupe <span id="use-group-display" style="color: #e11d48;"></span></h3>
+            <button class="close-btn" id="close-use-modal">&times;</button>
+        </div>
+        <form id="form-use-stock">
+            <input type="hidden" id="use-blood-group">
+            <div class="form-group">
+                <label for="use-quantity">Nombre de poches à sortir</label>
+                <input type="number" id="use-quantity" value="1" min="1" max="10" required>
+            </div>
+            <div class="form-group">
+                <label for="use-reason">Motif de la sortie</label>
+                <select id="use-reason" required>
+                    <option value="TRANSFUSION">Transfusion patient</option>
+                    <option value="PERIMEE">Poche périmée</option>
+                    <option value="DETERIOREE">Détériorée / Non conforme</option>
+                    <option value="AUTRE">Autre motif</option>
+                </select>
+            </div>
+            <p class="info-note" style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">
+                <i class="fa-solid fa-circle-info"></i> Les poches ayant la date de péremption la plus proche seront déstockées en priorité (Règle FIFO).
+            </p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancel-use-modal">Annuler</button>
+                <button type="submit" class="btn-primary btn-danger" id="submit-use-btn">Valider la sortie</button>
+            </div>
+        </form>
+    </div>
+</div>

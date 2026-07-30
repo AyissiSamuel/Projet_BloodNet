@@ -1,0 +1,103 @@
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h2>Régulation & Arbitrage des Commandes B2B</h2>
+            <p class="subtitle">Validation administrative des réquisitions inter-hospitalières et allocation des drones</p>
+        </div>
+        
+        <!-- BADGE ALERTES EN ATTENTE -->
+        <div style="background: #fef3c7; color: #92400e; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; border: 1px solid #fde68a;">
+            <i class="fa-solid fa-triangle-exclamation"></i> <span id="pending-orders-count">0</span> commande(s) en attente d'arbitrage
+        </div>
+    </div>
+
+    <!-- TABLEAU DES COMMANDES À VALIDER -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-gavel"></i> Demandes en Attente d'Approbation Administrative</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>N° Commande</th>
+                        <th>Hôpital Demandeur</th>
+                        <th>Hôpital Source (Fournisseur)</th>
+                        <th>Groupe & Qté</th>
+                        <th>Degré d'Urgence</th>
+                        <th>Date Demande</th>
+                        <th>Décision Régulateur</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-orders-table-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- HISTORIQUE DES ARBITRAGES RÉCENTS -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> Historique Régional des Arbitrages</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>N° Commande</th>
+                        <th>Demandeur / Fournisseur</th>
+                        <th>Besoin</th>
+                        <th>Décision</th>
+                        <th>Validé Par</th>
+                        <th>Date Décision</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-orders-history-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE D'ARBITRAGE DE COMMANDE -->
+<div class="modal-overlay" id="modal-arbitrage-order" style="display: none;">
+    <div class="modal-content" style="max-width: 600px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-shield-halved"></i> Décision de Régulation — <span id="arbitrage-order-id">#CMD-000</span></h3>
+            <button class="close-btn" id="close-arbitrage-modal">&times;</button>
+        </div>
+        <div style="padding: 1rem 0;">
+            <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 1rem;">
+                <p style="margin: 0 0 5px 0;"><strong>Demandeur :</strong> <span id="arb-demandeur">-</span></p>
+                <p style="margin: 0 0 5px 0;"><strong>Fournisseur sollicité :</strong> <span id="arb-fournisseur">-</span></p>
+                <p style="margin: 0;"><strong>Besoin :</strong> <span id="arb-quantite" style="color:#dc2626; font-weight:bold;">-</span> poche(s) de <strong id="arb-groupe">-</strong></p>
+            </div>
+
+            <form id="form-arbitrage">
+                <input type="hidden" id="arb-commande-id">
+                
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="arb-drone-assign">Assigner un Drone de Livraison</label>
+                    <select id="arb-drone-assign" required>
+                        <option value="">-- Sélectionner un drone disponible --</option>
+                        <option value="DRONE-01">Drone 01 (Base Régionale Centre)</option>
+                        <option value="DRONE-02">Drone 02 (Relais Laquintinie)</option>
+                        <option value="DRONE-03">Drone 03 (Urgence Vitale)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="arb-note">Note d'arbitrage / Motif de rejet</label>
+                    <textarea id="arb-note" rows="3" placeholder="Ex: Priorité accordée suite à détresse respiratoire / Stock fournisseur insuffisant..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; box-sizing: border-box;"></textarea>
+                </div>
+
+                <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn-danger" id="btn-reject-order"><i class="fa-solid fa-xmark"></i> Rejeter la Commande</button>
+                    <button type="submit" class="btn-primary" id="btn-approve-order" style="background: #16a34a;"><i class="fa-solid fa-check"></i> Valider & Déployer Drone</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

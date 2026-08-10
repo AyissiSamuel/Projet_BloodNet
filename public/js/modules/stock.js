@@ -3,14 +3,24 @@ import { showToast } from './toast.js';
 let chartInstance = null;
 
 export const initStockModule = async (token, isDashboardHome = false) => {
-    const map = L.map('map').setView([3.8480, 11.5021], 12);
+    // Initialisation conditionnelle de la carte (Voir Partie 2)
+    const mapElement = document.getElementById('map');
+    if (mapElement) {
+        // Détruire l'instance Leaflet existante si elle a déjà été initialisée
+        if (mapElement._leaflet_id) {
+            mapElement._leaflet_id = null;
+        }
+        const map = L.map('map').setView([3.8480, 11.5021], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+    }
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-}).addTo(map);
     await fetchStockData(token);
     
-    if (!isDashboardHome) {
+    if (isDashboardHome) {
+        await fetchRecentActivity(token);
+    } else {
         await fetchStockHistory(token);
         setupStockEvents(token);
     }
@@ -126,40 +136,39 @@ const renderStockChart = (stockItems) => {
     });
 };
 
-// --- 4. CHARGEMENT DE L'HISTORIQUE ---
-const fetchStockHistory = async (token) => {
+// --- 4. CHARGEMENT DE L'HISTORIQUE --
+const fetchRecentActivity = async (token) => {
     try {
         const response = await fetch('/api/stocks/historique', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
         if (!response.ok) return;
 
         const history = await response.json();
-        const tbody = document.getElementById("history-table-body");
+        const tbody = document.getElementById("recent-orders-tbody");
         if (!tbody) return;
 
         tbody.innerHTML = "";
         if (history.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Aucun mouvement récent.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Aucun mouvement récent.</td></tr>`;
             return;
         }
 
-        history.forEach(mvt => {
+        // Afficher les 5 derniers mouvements sur le Dashboard
+        history.slice(0, 5).forEach(mvt => {
             const tr = document.createElement("tr");
             const isEntree = mvt.type_mouvement === 'ENTREE';
             tr.innerHTML = `
-                <td>${new Date(mvt.date_mouvement).toLocaleString('fr-FR')}</td>
-                <td><span class="badge ${isEntree ? 'status-emise' : 'status-recue'}">${mvt.type_mouvement}</span></td>
                 <td><strong>${mvt.groupe_sanguin}</strong></td>
-                <td>${mvt.quantite}</td>
-                <td>${mvt.motif || '-'}</td>
-                <td>${mvt.operateur_nom || 'Système'}</td>
+                <td>Hôpital / Banque Locale</td>
+                <td>${mvt.quantite || 1} poche(s)</td>
+                <td><span class="badge ${isEntree ? 'status-emise' : 'status-recue'}">${mvt.type_mouvement}</span></td>
+                <td>${new Date(mvt.date_mouvement).toLocaleDateString('fr-FR')}</td>
             `;
             tbody.appendChild(tr);
         });
     } catch (err) {
-        console.error("Erreur chargement historique:", err);
+        console.error("Erreur chargement mouvements récents :", err);
     }
 };
 

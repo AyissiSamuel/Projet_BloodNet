@@ -3,10 +3,9 @@ import { showToast } from './toast.js';
 let chartInstance = null;
 
 export const initStockModule = async (token, isDashboardHome = false) => {
-    // Initialisation conditionnelle de la carte (Voir Partie 2)
+    // Initialisation conditionnelle de la carte 
     const mapElement = document.getElementById('map');
     if (mapElement) {
-        // Détruire l'instance Leaflet existante si elle a déjà été initialisée
         if (mapElement._leaflet_id) {
             mapElement._leaflet_id = null;
         }
@@ -16,16 +15,54 @@ export const initStockModule = async (token, isDashboardHome = false) => {
         }).addTo(map);
     }
 
+    // Attachement des écouteurs d'événements pour les modales et formulaires
+    setupStockEvents(token);
+
     await fetchStockData(token);
     
     if (isDashboardHome) {
+        await fetchDashboardKPIs(token);
         await fetchRecentActivity(token);
     } else {
-        await fetchStockHistory(token);
         setupStockEvents(token);
+        setupFilterEvents(token);
+        await fetchStockData(token);
     }
 };
+// --- MISE À JOUR DES KPI DANS LE DASHBOARD ---
+export const fetchDashboardKPIs = async (token) => {
+    try {
+        const response = await fetch('/api/dashboard/kpis', {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
 
+        if (!response.ok) throw new Error("Erreur de récupération des KPIs");
+
+        const data = await response.json();
+
+        // Injecte les valeurs réelles dans le HTML
+        const totalElem = document.getElementById("kpi-total-stock");
+        const criticalElem = document.getElementById("kpi-critical-stock");
+        const pendingElem = document.getElementById("kpi-pending-orders");
+        const donorsElem = document.getElementById("kpi-active-donors");
+
+        if (totalElem) totalElem.textContent = data.total_stock ?? '0';
+        if (criticalElem) criticalElem.textContent = data.critical_stock ?? '0';
+        if (pendingElem) pendingElem.textContent = data.pending_orders ?? '0';
+        if (donorsElem) donorsElem.textContent = data.active_donors ?? '0';
+
+    } catch (error) {
+        console.error("Impossible de charger les KPI :", error);
+        // Fallback visuel en cas d'erreur
+        ["kpi-total-stock", "kpi-critical-stock", "kpi-pending-orders", "kpi-active-donors"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = "N/A";
+        });
+    }
+};
 // --- 1. CHARGEMENT DU STOCK ---
 const fetchStockData = async (token) => {
     try {
@@ -38,7 +75,6 @@ const fetchStockData = async (token) => {
         const stockData = await response.json();
         renderStockTableAndCards(stockData);
         
-        // On initialise le graphique seulement si l'élément canvas est présent dans le DOM
         if (document.getElementById("stockChart")) {
             renderStockChart(stockData);
         }
@@ -94,7 +130,6 @@ const renderStockTableAndCards = (stockItems) => {
         }
     });
 
-    // Attacher les écouteurs sur les boutons "Déstocker"
     document.querySelectorAll(".btn-use-modal").forEach(btn => {
         btn.addEventListener("click", (e) => {
             const group = e.target.getAttribute("data-group");
@@ -108,7 +143,7 @@ const renderStockChart = (stockItems) => {
     const ctx = document.getElementById('stockChart').getContext('2d');
     
     if (chartInstance) {
-        chartInstance.destroy(); // Détruit l'ancien graphique pour éviter les superpositions
+        chartInstance.destroy();
     }
 
     const labels = stockItems.map(i => i.blood_group);
@@ -136,7 +171,7 @@ const renderStockChart = (stockItems) => {
     });
 };
 
-// --- 4. CHARGEMENT DE L'HISTORIQUE --
+// --- 4. CHARGEMENT DE L'HISTORIQUE ---
 const fetchRecentActivity = async (token) => {
     try {
         const response = await fetch('/api/stocks/historique', {
@@ -174,69 +209,94 @@ const fetchRecentActivity = async (token) => {
 
 // --- 5. GESTION DES MODALES ET ÉVÉNEMENTS ---
 const openUseModal = (group) => {
-    document.getElementById("use-blood-group").value = group;
-    document.getElementById("use-group-display").textContent = group;
-    document.getElementById("modal-use-stock").style.display = "flex";
+    const inputGroup = document.getElementById("use-blood-group");
+    const displayGroup = document.getElementById("use-group-display");
+    
+    if (inputGroup) inputGroup.value = group;
+    if (displayGroup) displayGroup.textContent = group;
+    
+    const modalUse = document.getElementById("modal-use-stock");
+    if (modalUse) modalUse.style.display = "flex";
 };
 
 const setupStockEvents = (token) => {
     // Modale d'ajout
     const modalAdd = document.getElementById("modal-add-stock");
-    document.getElementById("btn-open-add-modal")?.addEventListener("click", () => modalAdd.style.display = "flex");
-    document.getElementById("close-add-modal")?.addEventListener("click", () => modalAdd.style.display = "none");
-    document.getElementById("cancel-add-modal")?.addEventListener("click", () => modalAdd.style.display = "none");
+    document.getElementById("btn-open-add-modal")?.addEventListener("click", () => {
+        if (modalAdd) modalAdd.style.display = "flex";
+    });
+    document.getElementById("close-add-modal")?.addEventListener("click", () => {
+        if (modalAdd) modalAdd.style.display = "none";
+    });
+    document.getElementById("cancel-add-modal")?.addEventListener("click", () => {
+        if (modalAdd) modalAdd.style.display = "none";
+    });
 
     // Modale de sortie
     const modalUse = document.getElementById("modal-use-stock");
-    document.getElementById("close-use-modal")?.addEventListener("click", () => modalUse.style.display = "none");
-    document.getElementById("cancel-use-modal")?.addEventListener("click", () => modalUse.style.display = "none");
+    document.getElementById("close-use-modal")?.addEventListener("click", () => {
+        if (modalUse) modalUse.style.display = "none";
+    });
+    document.getElementById("cancel-use-modal")?.addEventListener("click", () => {
+        if (modalUse) modalUse.style.display = "none";
+    });
 
     // Soumission Formulaire Ajout
-    document.getElementById("form-add-stock")?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const payload = {
-            groupe_sanguin: document.getElementById("add-blood-group").value,
-            composant: document.getElementById("add-component").value,
-            volume_ml: parseInt(document.getElementById("add-volume").value, 10),
-            date_collecte: document.getElementById("add-collection-date").value
-        };
+    const formAdd = document.getElementById("form-add-stock");
+    if (formAdd && !formAdd.dataset.listenerAttached) {
+        formAdd.dataset.listenerAttached = "true";
+        formAdd.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = {
+                groupe_sanguin: document.getElementById("add-blood-group").value,
+                composant: document.getElementById("add-component").value,
+                volume_ml: parseInt(document.getElementById("add-volume").value, 10),
+                date_collecte: document.getElementById("add-collection-date").value
+            };
 
-        const res = await fetch('/api/poches/enregistrer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(payload)
+            const res = await fetch('/api/poches/enregistrer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                showToast("Poche ajoutée avec succès", "success");
+                if (modalAdd) modalAdd.style.display = "none";
+                formAdd.reset();
+                fetchStockData(token);
+            } else {
+                showToast("Erreur lors de l'ajout", "error");
+            }
         });
-
-        if (res.ok) {
-            showToast("Poche ajoutée avec succès", "success");
-            modalAdd.style.display = "none";
-            initStockModule(token, false);
-        } else {
-            showToast("Erreur lors de l'ajout", "error");
-        }
-    });
+    }
 
     // Soumission Formulaire Déstockage (FIFO)
-    document.getElementById("form-use-stock")?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const payload = {
-            groupe_sanguin: document.getElementById("use-blood-group").value,
-            quantite: parseInt(document.getElementById("use-quantity").value, 10),
-            motif: document.getElementById("use-reason").value
-        };
+    const formUse = document.getElementById("form-use-stock");
+    if (formUse && !formUse.dataset.listenerAttached) {
+        formUse.dataset.listenerAttached = "true";
+        formUse.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = {
+                groupe_sanguin: document.getElementById("use-blood-group").value,
+                quantite: parseInt(document.getElementById("use-quantity").value, 10),
+                motif: document.getElementById("use-reason").value
+            };
 
-        const res = await fetch('/api/poches/utiliser', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(payload)
+            const res = await fetch('/api/stocks/utiliser', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                showToast("Déstockage effectué avec succès", "success");
+                if (modalUse) modalUse.style.display = "none";
+                formUse.reset();
+                fetchStockData(token);
+            } else {
+                showToast("Erreur lors du déstockage", "error");
+            }
         });
-
-        if (res.ok) {
-            showToast("Déstockage effectué avec succès", "success");
-            modalUse.style.display = "none";
-            initStockModule(token, false);
-        } else {
-            showToast("Erreur lors du déstockage", "error");
-        }
-    });
+    }
 };

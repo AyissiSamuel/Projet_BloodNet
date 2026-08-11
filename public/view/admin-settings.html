@@ -1,0 +1,87 @@
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h2>Paramètres</h2>
+            <p class="subtitle">Gestion des comptes administrateurs et sécurité de votre session</p>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+
+        <!-- GESTION DES ADMINISTRATEURS -->
+        <div class="card-box">
+            <div class="table-header">
+                <h3><i class="fa-solid fa-user-shield"></i> Administrateurs du Réseau</h3>
+                <button class="btn-sm btn-primary" id="btn-open-add-admin">
+                    <i class="fa-solid fa-plus"></i> Ajouter
+                </button>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Statut</th>
+                            <th>Inscrit le</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admins-table-body">
+                        <!-- Rempli en JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SÉCURITÉ DU COMPTE -->
+        <div class="card-box">
+            <div class="table-header">
+                <h3><i class="fa-solid fa-lock"></i> Sécurité du Compte</h3>
+            </div>
+            <form id="form-change-password" style="padding: 1rem 0;">
+                <div class="form-group">
+                    <label>Mot de passe actuel</label>
+                    <input type="password" id="current-password" required>
+                </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label>Nouveau mot de passe</label>
+                    <input type="password" id="new-password" minlength="8" required>
+                </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label>Confirmer le nouveau mot de passe</label>
+                    <input type="password" id="confirm-password" minlength="8" required>
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top: 1.5rem; width: 100%;">
+                    <i class="fa-solid fa-key"></i> Mettre à jour le mot de passe
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE AJOUT ADMINISTRATEUR -->
+<div class="modal-overlay" id="modal-add-admin" style="display: none;">
+    <div class="modal-content" style="max-width: 480px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-user-plus"></i> Nouvel Administrateur</h3>
+            <button class="close-btn" id="close-add-admin-modal">&times;</button>
+        </div>
+        <form id="form-add-admin" style="padding: 1rem 0;">
+            <div class="form-group">
+                <label>Nom complet</label>
+                <input type="text" id="new-admin-nom" required>
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Email</label>
+                <input type="email" id="new-admin-email" required>
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Mot de passe temporaire</label>
+                <input type="password" id="new-admin-password" minlength="8" required>
+            </div>
+            <button type="submit" class="btn-primary" style="margin-top: 1.5rem; width: 100%;">
+                Créer le compte
+            </button>
+        </form>
+    </div>
+</div>

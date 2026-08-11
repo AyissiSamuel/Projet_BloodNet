@@ -5,10 +5,14 @@ let io;
 
 module.exports = {
     init: (server) => {
+        // L'origine CORS reste ouverte par défaut (contexte de développement
+        // et de démonstration académique), mais devient configurable via
+        // ALLOWED_ORIGIN dans le .env pour restreindre l'accès une fois une
+        // URL de déploiement fixée (amélioration actée au chantier 1).
         io = new Server(server, {
             cors: {
-                origin: "*",
-                methods: ["GET", "POST", "PUT"]
+                origin: process.env.ALLOWED_ORIGIN || "*",
+                methods: ["GET", "POST", "PUT", "PATCH"]
             }
         });
 
@@ -22,7 +26,11 @@ module.exports = {
 
             try {
                 const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
-                const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET);
+                // Fallback identique à celui utilisé dans authController.login
+                // et authMiddleware.verifyToken, pour éviter un rejet
+                // systématique des connexions WebSocket si JWT_SECRET est
+                // absent du .env.
+                const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET || 'cle_secrete_par_defaut');
                 socket.user = decoded;
                 next();
             } catch (err) {

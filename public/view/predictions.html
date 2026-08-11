@@ -1,0 +1,39 @@
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h2>Prédictions & Alertes Intelligentes</h2>
+            <p class="subtitle">Anticipation des ruptures de stock et des pertes par péremption, par groupe sanguin</p>
+        </div>
+        <div style="background: #eef2ff; color: #4338ca; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; border: 1px solid #c7d2fe;">
+            <i class="fa-solid fa-chart-line"></i> Seuils : rupture sous <span id="seuil-rupture">5</span> j · péremption sous <span id="seuil-peremption">7</span> j
+        </div>
+    </div>
+
+    <!-- CARTES DE SYNTHÈSE PAR GROUPE SANGUIN -->
+    <div class="stat-cards-grid" id="prediction-cards" style="margin-top: 1.5rem;">
+        <!-- Rempli dynamiquement en JS -->
+    </div>
+
+    <!-- ALERTES RÉCENTES -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-bell"></i> Alertes Générées</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Groupe</th>
+                        <th>Message</th>
+                        <th>Date</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody id="alertes-table-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

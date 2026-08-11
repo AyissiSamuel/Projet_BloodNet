@@ -17,5 +17,6 @@ const pool = new Pool({
 // Uniquement l'exportation brute
 module.exports = {
     query: (text, params) => pool.query(text, params),
+    connect: () => pool.connect(), // Nécessaire pour les transactions (BEGIN/COMMIT/ROLLBACK) via un client dédié
     pool
 };

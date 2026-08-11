@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BloodNet — Connexion Établissement</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #F8F9FA; font-family: system-ui, -apple-system, sans-serif; margin: 0; }
@@ -79,10 +79,21 @@
                         role: data.user.role // 'SUPER_ADMIN', 'ADMIN_HOPITAL' ou 'PERSONNEL'
                     }));
 
-                    localStorage.setItem('hospital_info', JSON.stringify(data.hospital || {}));
+                    // NOTE : authController.login ne renvoie pas de clé "hospital"
+                    // séparée — les informations d'hôpital rattachées à
+                    // l'utilisateur (id_hopital) sont déjà dans user_info.
+                    // Ligne conservée à { } pour compatibilité ascendante avec
+                    // d'éventuels modules frontend qui liraient cette clé.
+                    localStorage.setItem('hospital_info', JSON.stringify({}));
 
-                    // Redirection vers le Shell SPA principal
-                    window.location.href = "/index.html";
+                    // Redirection selon le rôle : un SUPER_ADMIN accède à son
+                    // espace dédié (arbitrage, supervision régionale), tandis
+                    // que le personnel hospitalier accède au Shell SPA métier.
+                    if (data.user.role === 'SUPER_ADMIN') {
+                        window.location.href = "/admin.html";
+                    } else {
+                        window.location.href = "/index.html";
+                    }
                 } else {
                     errorAlert.textContent = data.message || "Identifiants ou statut de compte invalide.";
                     errorAlert.style.display = "block";

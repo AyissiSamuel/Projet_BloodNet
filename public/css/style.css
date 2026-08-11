@@ -57,6 +57,33 @@ body { background-color: var(--bg-main); color: var(--text-dark); min-height: 10
     height: 100%;
 }
 
+/* --- MODE SOMBRE --- */
+body.dark-mode {
+    --bg-main: #0F172A;
+    --bg-card: #1E293B;
+    --text-dark: #F8FAFC;
+    --text-muted: #94A3B8;
+    --border-color: #334155;
+    background-color: var(--bg-main);
+    color: var(--text-dark);
+}
+
+body.dark-mode .topbar,
+body.dark-mode .card,
+body.dark-mode .kpi-card,
+body.dark-mode .table-container,
+body.dark-mode .modal-content {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-dark);
+}
+
+body.dark-mode .data-table th, 
+body.dark-mode .data-table td {
+    border-bottom-color: var(--border-color);
+    color: var(--text-dark);
+}
+
 /* CARDS STATUT */
 .stat-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
 .stat-card { background: #FFF; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); border-top-width: 4px; }
@@ -100,8 +127,86 @@ body { background-color: var(--bg-main); color: var(--text-dark); min-height: 10
 #map-container { flex: 1; border-radius: 8px; overflow: hidden; min-height: 280px; }
 
 /* FAB */
-.fab-btn { position: fixed; bottom: 25px; right: 25px; width: 52px; height: 52px; border-radius: 50%; background: var(--primary-blue); color: #FFF; border: none; font-size: 1.3rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.2s, background-color 0.2s; z-index: 90; }
-.fab-btn:hover { transform: scale(1.08); background: #0041A3; }
+.fab-wrapper {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.fab-main-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--color-crit); /* Rouge médical */
+    color: #ffffff;
+    border: none;
+    font-size: 1.4rem;
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+    cursor: pointer;
+    transition: transform 0.3s ease, background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fab-main-btn:hover {
+    transform: scale(1.08);
+    background: #B91C1C;
+}
+
+/* Menu d'options qui apparaît lors du clic/activation */
+.fab-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(15px);
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+}
+
+.fab-wrapper.active .fab-options {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.fab-wrapper.active .fab-main-btn {
+    transform: rotate(45deg); /* Animation de bascule du bouton central */
+    background: var(--primary-dark);
+}
+
+.fab-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #ffffff;
+    padding: 8px 16px;
+    border-radius: 25px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-color);
+    color: var(--text-dark);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.fab-item:hover {
+    background: #F8F9FA;
+    transform: translateX(-4px);
+}
+
+.fab-item i {
+    font-size: 1rem;
+    color: var(--color-crit);
+}
 
 .badge.status-emise { background: #E0F2FE; color: #0369A1; font-weight: 600; padding: 4px 8px; border-radius: 6px; }
 .badge.status-recue { background: #FEF3C7; color: #B45309; font-weight: 600; padding: 4px 8px; border-radius: 6px; }
@@ -124,28 +229,80 @@ body { background-color: var(--bg-main); color: var(--text-dark); min-height: 10
 /* --- KPI GRID --- */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 1.25rem;                         
+    max-width: 1200px;                    
+    margin: 0 auto 1.5rem auto;           
+    width: 100%;                         
 }
-
 .kpi-card {
     background: #ffffff;
     padding: 1.25rem;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Ombre portée plus douce */
     display: flex;
     align-items: center;
-    gap: 1rem;
-    border: 1px solid #e2e8f0;
+    gap: 1.2rem;
+    border: 1px solid var(--border-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Styles des conteneurs d'icônes pastel */
+.kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.kpi-icon.red { background: #FEE2E2; color: var(--color-crit); }
+.kpi-icon.orange { background: #FEF3C7; color: var(--color-warn); }
+.kpi-icon.blue { background: #E0F2FE; color: var(--primary-blue); }
+.kpi-icon.green { background: #DCFCE7; color: var(--color-ok); }
+
+.kpi-title {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.2;
+    margin: 2px 0;
+}
+
+.kpi-status {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.kpi-status.status-ok { color: var(--color-ok); }
+.kpi-status.status-alert { color: var(--color-crit); }
 
 /* --- MAIN GRID (Graphique + Carte) --- */
 .dashboard-main-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1.5fr; /* 40% Graphique / 60% Carte (Carte élargie) */
     gap: 1.5rem;
     margin-bottom: 2rem;
+}
+
+@media (max-width: 992px) {
+    .dashboard-main-grid {
+        grid-template-columns: 1fr; /* Passage sur 1 colonne sur tablette/mobile */
+    }
 }
 
 @media (max-width: 992px) {

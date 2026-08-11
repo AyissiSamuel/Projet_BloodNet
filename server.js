@@ -7,7 +7,7 @@ const http = require('http');
 const path = require('path');
 const socketConfig = require('./config/socket');
 
-const db = require('./config/db'); 
+const db = require('./config/db');
 
 const app = express();
 const server = http.createServer(app);
@@ -28,39 +28,58 @@ app.use(express.static(path.join(__dirname, 'public')));
 // IMPORTATION ET LIAISON DES ROUTES API
 // ==========================================
 const authRoutes = require('./src/routes/authRoutes');
-app.use('/api/auth', authRoutes); // Branchement des routes auth
+app.use('/api/auth', authRoutes);
 const hospitalRoutes = require('./src/routes/hospitalRoutes');
 app.use('/api/hospitals', hospitalRoutes);
-
-// Route de test
-app.get('/api/test', (req, res) => {
-    res.json({ message: "L'API de BloodNet fonctionne parfaitement !" });
-});
 const stockRoutes = require('./src/routes/stockRoutes');
 app.use('/api/stocks', stockRoutes);
 const donneurRoutes = require('./src/routes/donneurRoutes');
 app.use('/api/donneurs', donneurRoutes);
 const sosRoutes = require('./src/routes/sosRoutes');
-app.use('/api/sos', sosRoutes);         
+app.use('/api/sos', sosRoutes);
 const commandeRoutes = require('./src/routes/commandeRoutes');
 app.use('/api/commandes', commandeRoutes);
+const droneRoutes = require('./src/routes/droneRoutes');
+app.use('/api/drones', droneRoutes);
 const adminRoutes = require('./src/routes/adminRoutes');
 app.use('/api/admin', adminRoutes);
 const pochesRoutes = require('./src/routes/pochesRoutes');
 app.use('/api/poches', pochesRoutes);
+const settingsRoutes = require('./src/routes/settingsRoutes');
+app.use('/api', settingsRoutes);
+const predictionRoutes = require('./src/routes/predictionRoutes');
+app.use('/api/predictions', predictionRoutes);
 
+// ==========================================
+// GESTION D'ERREUR GLOBALE
+// ==========================================
+// Filet de sécurité : toute exception non interceptée dans un controller
+// aboutit ici plutôt que de faire planter le processus silencieusement.
+// Répond à RNF-08 du cahier des charges (gestion explicite des erreurs).
+app.use((err, req, res, next) => {
+    console.error('[ERREUR NON GÉRÉE]', err);
+    res.status(err.status || 500).json({
+        message: err.message || "Une erreur interne est survenue. Veuillez réessayer."
+    });
+});
+
+// Route 404 générique pour les appels d'API inconnus
+app.use('/api', (req, res) => {
+    res.status(404).json({ message: `Route ${req.method} ${req.originalUrl} introuvable.` });
+});
 
 // Démarrage du serveur
 const bonjour = require('bonjour')();
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(` Serveur BloodNet en ligne sur le port ${PORT}`);
+    console.log(`Serveur BloodNet en ligne sur le port ${PORT}`);
 
     // Diffusion automatique du serveur sur le réseau local
-    const service = bonjour.publish({ 
-        name: 'BloodNet', 
-        type: 'http', 
-        port: 3000 
+    // (correction : le port diffusé suit désormais réellement le port d'écoute)
+    const service = bonjour.publish({
+        name: 'BloodNet',
+        type: 'http',
+        port: PORT
     });
 
     console.log('BloodNet est détectable sur le réseau local.');

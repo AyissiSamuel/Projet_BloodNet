@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Chart.js pour les statistiques du stock -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script type="module" src="/js/app.js"></script>
 </head>
 <body>
 
@@ -47,6 +46,9 @@
                 <a href="#" class="nav-item" data-target="donors" title="Gestion des Donneurs">
                     <i class="fa-solid fa-hand-holding-medical" aria-hidden="true"></i>
                 </a>
+                <a href="#" class="nav-item" data-target="predictions" title="Prédictions & Alertes">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                </a>
                 <a href="#" class="nav-item" data-target="settings" title="Paramètres">
                     <i class="fa-solid fa-gear" aria-hidden="true"></i>
                 </a>
@@ -63,6 +65,22 @@
             </div>
         </main>
     </div>
+    <!-- BOUTON FLOTTANT D'ACTION (FAB) -->
+<div class="fab-wrapper" id="fab-container">
+    <div class="fab-options">
+        <button class="fab-item" id="fab-add-bag">
+            <i class="fa-solid fa-droplet"></i>
+            <span>Ajouter une poche</span>
+        </button>
+        <button class="fab-item" id="fab-place-order">
+            <i class="fa-solid fa-cart-plus"></i>
+            <span>Passer une commande</span>
+        </button>
+    </div>
+    <button class="fab-main-btn" id="fab-main-trigger" title="Actions rapides" aria-label="Menu d'actions">
+        <i class="fa-solid fa-plus"></i>
+    </button>
+</div>
 
     <!-- SCRIPTS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

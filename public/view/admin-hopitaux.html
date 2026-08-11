@@ -1,0 +1,76 @@
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h2>Validation des Établissements</h2>
+            <p class="subtitle">Approbation des demandes d'adhésion et gestion des comptes hospitaliers du réseau</p>
+        </div>
+
+        <!-- BADGE DEMANDES EN ATTENTE -->
+        <div style="background: #fef3c7; color: #92400e; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; border: 1px solid #fde68a;">
+            <i class="fa-solid fa-triangle-exclamation"></i> <span id="pending-hospitals-count">0</span> demande(s) en attente
+        </div>
+    </div>
+
+    <!-- TABLEAU DES HÔPITAUX EN ATTENTE DE VALIDATION -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-hospital-user"></i> Demandes d'Adhésion en Attente</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Nom de l'Établissement</th>
+                        <th>Adresse</th>
+                        <th>Téléphone</th>
+                        <th>Région</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="pending-hospitals-table-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TABLEAU DE L'ENSEMBLE DU RÉSEAU (actifs + désactivés) -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-network-wired"></i> Réseau d'Établissements</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Nom de l'Établissement</th>
+                        <th>Région</th>
+                        <th>Téléphone</th>
+                        <th>Statut</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="all-hospitals-table-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE DE CONFIRMATION -->
+<div class="modal-overlay" id="modal-confirm-hospital" style="display: none;">
+    <div class="modal-content" style="max-width: 480px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-circle-question"></i> Confirmation</h3>
+            <button class="close-btn" id="close-confirm-hospital-modal">&times;</button>
+        </div>
+        <div style="padding: 1rem 0;">
+            <p id="confirm-hospital-message">Êtes-vous sûr de vouloir effectuer cette action ?</p>
+            <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem;">
+                <button type="button" class="btn-secondary" id="btn-cancel-hospital-action">Annuler</button>
+                <button type="button" class="btn-primary" id="btn-confirm-hospital-action">Confirmer</button>
+            </div>
+        </div>
+    </div>
+</div>

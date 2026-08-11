@@ -17,13 +17,20 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // Insertion dans la table des utilisateurs (schéma core_identity)
+        //
+        // NOTE DE SÉCURITÉ : le rôle par défaut est volontairement 'ADMIN_HOPITAL'.
+        // Cette route d'auto-inscription publique ne doit jamais permettre la
+        // création d'un compte 'SUPER_ADMIN' — ce rôle à privilèges élevés
+        // (validation des hôpitaux, arbitrage des commandes réseau) doit être
+        // provisionné manuellement en base par l'équipe technique.
         const queryText = `
             INSERT INTO core_identity.utilisateurs (nom, email, mot_de_passe, role, id_hopital, date_inscription)
             VALUES ($1, $2, $3, $4, $5, NOW())
             RETURNING id_utilisateur, nom, email, role;
         `;
-        
-        const values = [nom, email, hashedPassword, role || 'ADMIN_HOPITAL', id_hopital || null];
+
+        const roleAutorise = (role === 'SUPER_ADMIN') ? 'ADMIN_HOPITAL' : (role || 'ADMIN_HOPITAL');
+        const values = [nom, email, hashedPassword, roleAutorise, id_hopital || null];
         const result = await db.query(queryText, values);
 
         res.status(201).json({

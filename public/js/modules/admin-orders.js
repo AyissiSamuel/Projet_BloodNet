@@ -10,7 +10,7 @@ const fetchAdminOrders = async (token) => {
     const tbody = document.getElementById("admin-orders-table-body");
     const historyBody = document.getElementById("admin-orders-history-body");
 
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Chargement des réquisitions...</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Chargement des réquisitions...</td></tr>`;
 
     try {
         const res = await fetch('/api/admin/commandes/pending', {
@@ -39,31 +39,31 @@ const renderPendingTable = (orders, token) => {
     tbody.innerHTML = "";
 
     if (orders.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Aucune demande en attente de régulation.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Aucune demande en attente de régulation.</td></tr>`;
         return;
     }
 
     orders.forEach(ord => {
         const tr = document.createElement("tr");
 
-        let urgencyBadge = `<span class="badge" style="background:#f1f5f9; color:#475569;">Normale</span>`;
-        if (ord.urgence === 'URGENTE') urgencyBadge = `<span class="badge-status warn">URGENTE</span>`;
-        if (ord.urgence === 'CRITIQUE') urgencyBadge = `<span class="badge-status crit"><i class="fa-solid fa-bolt"></i> VITALE / SOS</span>`;
-
+        // NOTE : medical_logistics.commandes n'a pas de colonne "urgence" —
+        // ce badge affichait toujours "Normale" quel que soit le contexte
+        // réel. Retiré en attendant une éventuelle évolution du schéma pour
+        // distinguer une commande née d'un SOS (cf. sos_urgences) d'une
+        // commande directe classique.
         tr.innerHTML = `
             <td><strong>#${ord.id_commande}</strong></td>
             <td>${ord.hopital_demandeur}</td>
             <td>${ord.hopital_fournisseur}</td>
-            <td><strong>${ord.quantite_poches}</strong> poche(s) (${ord.groupe_sanguin})</td>
-            <td>${urgencyBadge}</td>
-            <td>${new Date(ord.created_at).toLocaleString('fr-FR')}</td>
+            <td><strong>${ord.quantite_poches}</strong> poche(s) (${ord.groupe_sanguin_complet})</td>
+            <td>${new Date(ord.date_commande).toLocaleString('fr-FR')}</td>
             <td>
                 <button class="btn-sm btn-primary btn-open-arbitrage" 
                     data-id="${ord.id_commande}" 
                     data-demandeur="${ord.hopital_demandeur}"
                     data-fournisseur="${ord.hopital_fournisseur}"
                     data-quantite="${ord.quantite_poches}"
-                    data-groupe="${ord.groupe_sanguin}">
+                    data-groupe="${ord.groupe_sanguin_complet}">
                     <i class="fa-solid fa-gavel"></i> Statuer
                 </button>
             </td>
@@ -92,15 +92,17 @@ const renderHistoryTable = (history) => {
 
     history.forEach(h => {
         const tr = document.createElement("tr");
-        const isApproved = h.statut === 'APPROUVEE' || h.statut === 'EN_TRANSIT';
+        // Statuts réels de medical_logistics.commandes.statut :
+        // EN_ATTENTE, ACCEPTEE, REFUSEE, EXPEDIEE, LIVREE, ANNULEE
+        const isApproved = h.statut === 'ACCEPTEE' || h.statut === 'EXPEDIEE' || h.statut === 'LIVREE';
 
         tr.innerHTML = `
             <td><strong>#${h.id_commande}</strong></td>
             <td>${h.hopital_demandeur} ➔ ${h.hopital_fournisseur}</td>
-            <td>${h.quantite_poches} poche(s) (${h.groupe_sanguin})</td>
+            <td>${h.quantite_poches} poche(s) (${h.groupe_sanguin_complet})</td>
             <td><span class="badge ${isApproved ? 'status-ok' : 'status-critique'}">${h.statut}</span></td>
-            <td>${h.nom_admin || 'SUPER_ADMIN'}</td>
-            <td>${new Date(h.date_decision).toLocaleString('fr-FR')}</td>
+            <td>${h.drone_assigne || '—'}</td>
+            <td>${new Date(h.date_commande).toLocaleString('fr-FR')}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -125,18 +127,21 @@ const setupArbitrageEvents = (token) => {
     // Valider la commande
     document.getElementById("form-arbitrage")?.addEventListener("submit", async (e) => {
         e.preventDefault();
-        await sendDecision('APPROUVEE', token);
+        await sendDecision('ACCEPTEE', token);
     });
 
     // Rejeter la commande
     document.getElementById("btn-reject-order")?.addEventListener("click", async () => {
         if (confirm("Êtes-vous sûr de vouloir rejeter cette réquisition ?")) {
-            await sendDecision('REJETEE_ADMIN', token);
+            await sendDecision('REFUSEE', token);
         }
     });
 };
 
 const sendDecision = async (statut, token) => {
+    // NOTE : drone_id et note sont envoyés mais ne sont actuellement pas
+    // persistés côté backend (aucune colonne correspondante dans
+    // medical_logistics.commandes) — conservés ici pour une évolution future.
     const payload = {
         id_commande: document.getElementById("arb-commande-id").value,
         statut_decision: statut,
@@ -152,7 +157,7 @@ const sendDecision = async (statut, token) => {
         });
 
         if (res.ok) {
-            showToast(`Commande ${statut === 'APPROUVEE' ? 'approuvée avec succès' : 'rejetée'}`, "success");
+            showToast(`Commande ${statut === 'ACCEPTEE' ? 'approuvée avec succès' : 'rejetée'}`, "success");
             document.getElementById("modal-arbitrage-order").style.display = "none";
             fetchAdminOrders(token);
         } else {

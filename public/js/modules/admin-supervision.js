@@ -99,9 +99,11 @@ const renderHospitalsTable = (hospitals, token) => {
     hospitals.forEach(h => {
         const tr = document.createElement("tr");
         
-        let statusBadge = `<span class="badge-status ok">VALIDE</span>`;
+        // Valeurs réelles de hopitaux.statut (chk_hopital_statut) :
+        // EN_ATTENTE, ACTIF, DESACTIVE
+        let statusBadge = `<span class="badge-status ok">ACTIF</span>`;
         if (h.statut_validation === 'EN_ATTENTE') statusBadge = `<span class="badge-status warn">EN ATTENTE</span>`;
-        if (h.statut_validation === 'REJETE') statusBadge = `<span class="badge-status crit">REJETÉ</span>`;
+        if (h.statut_validation === 'DESACTIVE') statusBadge = `<span class="badge-status crit">DÉSACTIVÉ</span>`;
 
         tr.innerHTML = `
             <td><strong>${h.nom_hopital}</strong></td>

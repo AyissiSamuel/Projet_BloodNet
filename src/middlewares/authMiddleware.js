@@ -10,7 +10,10 @@ exports.verifyToken = (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Le fallback doit être strictement identique à celui utilisé lors de
+        // la signature du token dans authController.login, sous peine de
+        // rejeter systématiquement tous les tokens si JWT_SECRET est absent du .env.
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cle_secrete_par_defaut');
         req.user = decoded; // Contient id_utilisateur, role, id_hopital
         next();
     } catch (error) {

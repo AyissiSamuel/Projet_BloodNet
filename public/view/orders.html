@@ -99,7 +99,10 @@
         </div>
         <div style="padding: 1rem 0;">
             <!-- INFOS TÉLÉMÉTRIE EN TEMPS RÉEL -->
-            <div class="telemetry-bar" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1rem; background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
+            <!-- NOTE : seuls drone_id, position et batterie sont réellement
+                 persistés en base (drone_telemetry.commandes) ; vitesse et
+                 altitude ne sont pas des données disponibles côté serveur. -->
+            <div class="telemetry-bar" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
                 <div><small style="color: #64748b;">Drone ID</small><br><strong id="telemetry-drone-id">DRONE-01</strong></div>
                 <div><small style="color: #64748b;">Vitesse</small><br><strong id="telemetry-speed">0 km/h</strong></div>
                 <div><small style="color: #64748b;">Altitude</small><br><strong id="telemetry-altitude">0 m</strong></div>

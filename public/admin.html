@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloodNet — Espace Administrateur</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- SYSTEME DE NOTIFICATION TOAST -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <h1 class="logo">Blood<span>Net</span></h1>
+            <span class="hospital-name"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Espace Administrateur</span>
+        </div>
+        <div class="topbar-right">
+            <button class="icon-btn" id="notif-btn" aria-label="Notifications">
+                <i class="fa-regular fa-bell" aria-hidden="true"></i>
+            </button>
+            <div class="user-avatar" title="Session Admin">AD</div>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- SIDEBAR ADMIN -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item" data-target="admin-hopitaux" title="Validation des établissements">
+                    <i class="fa-solid fa-hospital-user" aria-hidden="true"></i>
+                </a>
+                <a href="#" class="nav-item active" data-target="admin-zones" title="Hôpitaux par zone">
+                    <i class="fa-solid fa-map-pin" aria-hidden="true"></i>
+                </a>
+                <a href="#" class="nav-item" data-target="admin-supervision" title="Supervision du stock">
+                    <i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>
+                </a>
+                <a href="#" class="nav-item" data-target="admin-orders" title="Arbitrage des commandes">
+                    <i class="fa-solid fa-gavel" aria-hidden="true"></i>
+                </a>
+                <a href="#" class="nav-item" data-target="predictions" title="Prédictions & alertes">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                </a>
+                <a href="#" class="nav-item" data-target="admin-carte" title="Carte du réseau">
+                    <i class="fa-solid fa-map" aria-hidden="true"></i>
+                </a>
+                <a href="#" class="nav-item" data-target="admin-settings" title="Paramètres">
+                    <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                </a>
+            </nav>
+            <a href="#" id="logout-btn" class="nav-item logout" title="Déconnexion">
+                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+            </a>
+        </aside>
+
+        <!-- ZONE DYNAMIQUE (Injectée par app-admin.js via fetch) -->
+        <main class="main-content" id="app-content">
+            <div class="loading-spinner">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement de l'espace administrateur...
+            </div>
+        </main>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="js/app-admin.js"></script>
+</body>
+</html>

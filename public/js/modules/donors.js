@@ -55,6 +55,26 @@ const renderDonorsTable = (donors) => {
         `;
         tbody.appendChild(tr);
     });
+
+    // Écouteur pour "Nouveau Don" sur un donneur déjà enregistré : pré-remplit
+    // la modale avec l'id_donneur existant, pour que enregistrerDonEtDonneur
+    // (backend) réutilise la fiche au lieu d'en créer une nouvelle.
+    document.querySelectorAll(".btn-new-donation").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const { id, group } = e.currentTarget.dataset;
+            const modal = document.getElementById("modal-add-donor");
+            const form = document.getElementById("form-add-donor");
+
+            form.dataset.existingDonorId = id; // consommé à la soumission du formulaire
+            document.getElementById("donor-blood-group").value = group;
+
+            // Le donneur existe déjà : les champs identité ne sont pas requis à nouveau
+            document.getElementById("donor-personal-info").style.display = "none";
+            document.getElementById("donor-nom").removeAttribute("required");
+
+            modal.style.display = "flex";
+        });
+    });
 };
 
 // --- 2. HISTORIQUE GLOBAL DES DONS ---
@@ -79,13 +99,16 @@ const fetchDonationsHistory = async (token) => {
 
         history.forEach(item => {
             const tr = document.createElement("tr");
+            // NOTE : aucune colonne de statut sérologique n'existe dans le
+            // schéma réel (historique_dons n'a pas ce champ) — affiché comme
+            // information non disponible plutôt qu'une fausse conformité.
             tr.innerHTML = `
                 <td>${new Date(item.date_don).toLocaleString('fr-FR')}</td>
                 <td><code>${item.code_donneur}</code></td>
                 <td><strong>${item.groupe_sanguin}</strong></td>
                 <td>${item.volume_ml} mL</td>
-                <td>${item.lieu_prelevement || 'Hôpital Central'}</td>
-                <td><span class="badge status-emise">${item.statut_serologique || 'CONFORME'}</span></td>
+                <td>${item.lieu_prelevement}</td>
+                <td><span class="badge" style="background:#f1f5f9; color:#475569;">Non renseigné</span></td>
             `;
             tbody.appendChild(tr);
         });
@@ -119,8 +142,11 @@ const setupDonorEvents = (token) => {
     document.getElementById("form-add-donor")?.addEventListener("submit", async (e) => {
         e.preventDefault();
         const isAnon = anonCheckbox.checked;
+        const form = e.currentTarget;
+        const existingDonorId = form.dataset.existingDonorId || null;
 
         const payload = {
+            id_donneur: existingDonorId,
             est_anonyme: isAnon,
             nom_complet: isAnon ? null : document.getElementById("donor-nom").value,
             telephone: isAnon ? null : document.getElementById("donor-phone").value,
@@ -138,6 +164,8 @@ const setupDonorEvents = (token) => {
             if (res.ok) {
                 showToast("Donneur et don enregistrés avec succès", "success");
                 modal.style.display = "none";
+                delete form.dataset.existingDonorId; // réinitialise pour le prochain ajout "classique"
+                personalInfoDiv.style.display = "block";
                 initDonorsModule(token);
             } else {
                 showToast("Erreur lors de l'enregistrement", "error");

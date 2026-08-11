@@ -1,13 +1,31 @@
 import { showToast } from './toast.js';
 
-export const initSettingsModule = async (token) => {
+export const initSettingsModule = (token) => {
+    // Initialisation du toggle simple (si présent)
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        if (currentTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            themeToggle.checked = true;
+        }
+
+        themeToggle.addEventListener('change', (e) => {
+            const isDark = e.target.checked;
+            document.body.classList.toggle('dark-mode', isDark);
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            showToast(`Thème ${isDark ? 'sombre' : 'clair'} activé`, "info");
+        });
+    }
+
+    // Lancement de la navigation entre onglets, des formulaires et du chargement des utilisateurs
     setupSettingsNavigation();
     setupThemeToggle();
-    await fetchUsersList(token);
     setupSettingsForms(token);
+    fetchUsersList(token);
 };
 
-// --- 1. NAVIGATION ENTRE LES PANNEAUX DE PARAMÈTRES ---
+// 1. NAVIGATION ENTRE PANNEAUX
 const setupSettingsNavigation = () => {
     const navBtns = document.querySelectorAll(".settings-nav-btn");
     const panes = document.querySelectorAll(".settings-pane");
@@ -32,25 +50,21 @@ const setupSettingsNavigation = () => {
     });
 };
 
-// --- 2. APPARENCE ET THÈME SOMBRE / CLAIR ---
+// 2. CHOIX DU THÈME PAR RADIO
 const setupThemeToggle = () => {
     const radios = document.querySelectorAll('input[name="theme-mode"]');
     radios.forEach(radio => {
         radio.addEventListener("change", (e) => {
             const mode = e.target.value;
-            if (mode === "dark") {
-                document.body.classList.add("dark-mode");
-                localStorage.setItem("bloodnet_theme", "dark");
-            } else {
-                document.body.classList.remove("dark-mode");
-                localStorage.setItem("bloodnet_theme", "light");
-            }
-            showToast(`Thème ${mode === 'dark' ? 'sombre' : 'clair'} appliqué`, "success");
+            const isDark = mode === "dark";
+            document.body.classList.toggle("dark-mode", isDark);
+            localStorage.setItem("bloodnet_theme", mode);
+            showToast(`Thème ${isDark ? 'sombre' : 'clair'} appliqué`, "success");
         });
     });
 };
 
-// --- 3. CHARGEMENT DES UTILISATEURS ET AUTORISATIONS ---
+// 3. CHARGEMENT UTILISATEURS
 const fetchUsersList = async (token) => {
     const tbody = document.getElementById("users-access-table-body");
     if (!tbody) return;
@@ -73,9 +87,9 @@ const fetchUsersList = async (token) => {
         users.forEach(u => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><strong>${u.nom_utilisateur || u.email}</strong></td>
-                <td><span class="badge status-emise">${u.role || 'OPERATEUR'}</span></td>
-                <td><span class="badge-status ok">${u.actif ? 'ACTIF' : 'SUSPENDU'}</span></td>
+                <td><strong>${u.nom || u.email}</strong></td>
+                <td><span class="badge status-emise">${u.role || 'PERSONNEL'}</span></td>
+                <td><span class="badge-status ok">${u.statut_compte === 'ACTIF' ? 'ACTIF' : 'SUSPENDU'}</span></td>
                 <td>
                     <button class="btn-sm btn-secondary btn-edit-user" data-id="${u.id_utilisateur}">
                         <i class="fa-solid fa-pen"></i> Droits
@@ -89,7 +103,7 @@ const fetchUsersList = async (token) => {
     }
 };
 
-// --- 4. FORMULAIRES ET SAUVEGARDE ---
+// 4. FORMULAIRES DE CONFIGURATION
 const setupSettingsForms = (token) => {
     document.getElementById("form-profile-settings")?.addEventListener("submit", async (e) => {
         e.preventDefault();

@@ -11,6 +11,35 @@ export const initOrdersModule = async (token) => {
     await fetchOrders(token);
 };
 
+// --- FONCTION DE CHARGEMENT DYNAMIQUE DES HÔPITAUX ---
+const fetchHopitauxVendeurs = async (token) => {
+    const selectElem = document.getElementById("select-hopital-vendeur");
+    if (!selectElem) return;
+
+    try {
+        const res = await fetch('/api/hopitaux', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error("Erreur lors de la récupération des hôpitaux");
+
+        const hopitaux = await res.json();
+        
+        // Réinitialisation du select
+        selectElem.innerHTML = '<option value="">-- Sélectionnez un hôpital --</option>';
+
+        hopitaux.forEach(h => {
+            const option = document.createElement('option');
+            option.value = h.id_hopital; // <--- Envoie l'UUID au serveur
+            option.textContent = h.nom_hopital; // <--- Affiche le Nom à l'utilisateur
+            selectElem.appendChild(option);
+        });
+    } catch (err) {
+        console.error("Erreur hôpitaux:", err);
+        showToast("Impossible de charger la liste des hôpitaux", "error");
+    }
+};
+
 // --- 1. GESTION DES ONGLETS (ÉMISES / REÇUES) ---
 const setupTabEvents = (token) => {
     const tabs = document.querySelectorAll(".tabs-container .tab-btn");
@@ -24,7 +53,7 @@ const setupTabEvents = (token) => {
     });
 };
 
-// --- 2. RECUPÉRATION DES COMMANDES ET COMBINAISON TÉLÉMÉTRIE ---
+// --- 2. RECUPÉRATION DES COMMANDES ---
 const fetchOrders = async (token) => {
     const tbody = document.getElementById("orders-table-body");
     if (!tbody) return;
@@ -58,11 +87,9 @@ const renderOrdersTable = (orders, token) => {
 
     orders.forEach(order => {
         const tr = document.createElement("tr");
-        
-        // Formate la présence de télémétrie drone si en transit
-        const isEnTransit = order.statut_commande === 'EN_TRANSIT';
+        const isEnTransit = order.statut_commande === 'EXPEDIEE';
         const droneStatus = isEnTransit 
-            ? `<span class="badge status-emise"><i class="fa-solid fa-plane-departure"></i> En Vol (${order.drone_id || 'DRONE-01'})</span>`
+            ? `<span class="badge status-emise"><i class="fa-solid fa-plane-departure"></i> En Vol</span>`
             : `<span class="badge" style="background:#f1f5f9; color:#475569;">Inactif</span>`;
 
         tr.innerHTML = `
@@ -73,19 +100,16 @@ const renderOrdersTable = (orders, token) => {
             <td><span class="badge-status ${getStatusClass(order.statut_commande)}">${order.statut_commande}</span></td>
             <td>${droneStatus}</td>
             <td>
-                ${isEnTransit ? `<button class="btn-sm btn-primary btn-track-drone" data-id="${order.id_commande}" data-drone="${order.drone_id || 'DRONE-01'}"><i class="fa-solid fa-location-crosshairs"></i> Suivre Drone</button>` : ''}
-                ${activeTab === 'recues' && order.statut_commande === 'EN_ATTENTE' ? `<button class="btn-sm btn-success btn-accept-order" data-id="${order.id_commande}">Accepter & Déployer</button>` : ''}
+                ${isEnTransit ? `<button class="btn-sm btn-primary btn-track-drone" data-id="${order.id_commande}"><i class="fa-solid fa-location-crosshairs"></i> Suivre Drone</button>` : ''}
             </td>
         `;
         tbody.appendChild(tr);
     });
 
-    // Attacher les clics pour le suivi drone
     document.querySelectorAll(".btn-track-drone").forEach(btn => {
         btn.addEventListener("click", (e) => {
             const orderId = e.currentTarget.getAttribute("data-id");
-            const droneId = e.currentTarget.getAttribute("data-drone");
-            openDroneTrackingModal(orderId, droneId, token);
+            openDroneTrackingModal(orderId, token);
         });
     });
 };
@@ -93,24 +117,24 @@ const renderOrdersTable = (orders, token) => {
 const getStatusClass = (status) => {
     switch (status) {
         case 'LIVREE': return 'ok';
-        case 'EN_TRANSIT': return 'warn';
+        case 'ACCEPTEE': return 'ok';
+        case 'EXPEDIEE': return 'warn';
         case 'EN_ATTENTE': return 'warn';
+        case 'REFUSEE': return 'crit';
         case 'ANNULEE': return 'crit';
-        default: return 'ok';
+        default: return 'warn';
     }
 };
 
 // --- 4. SUIVI DU DRONE EN TEMPS RÉEL (LEAFLET) ---
-const openDroneTrackingModal = (orderId, droneId, token) => {
+const openDroneTrackingModal = (orderId, token) => {
     document.getElementById("tracking-order-id").textContent = `#${orderId}`;
-    document.getElementById("telemetry-drone-id").textContent = droneId;
+    document.getElementById("telemetry-drone-id").textContent = "Connexion...";
     const modal = document.getElementById("modal-drone-tracking");
     modal.style.display = "flex";
 
-    // Initialiser Leaflet après l'affichage de la modale (nécessaire pour un bon rendu du canvas)
     setTimeout(() => {
         if (!trackingMap) {
-            // Yaoundé par défaut
             trackingMap = L.map('drone-map').setView([3.8480, 11.5021], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
@@ -120,7 +144,6 @@ const openDroneTrackingModal = (orderId, droneId, token) => {
             trackingMap.invalidateSize();
         }
 
-        // Lancer la récupération de la télémétrie en boucle
         startTelemetryPolling(orderId, token);
     }, 200);
 };
@@ -137,22 +160,22 @@ const startTelemetryPolling = (orderId, token) => {
             if (!res.ok) return;
 
             const data = await res.json(); 
-            // ex: { lat: 3.85, lng: 11.51, speed: 45, altitude: 120, battery: 88 }
 
-            // Mettre à jour l'UI Télémétrie
-            document.getElementById("telemetry-speed").textContent = `${data.speed || 0} km/h`;
-            document.getElementById("telemetry-altitude").textContent = `${data.altitude || 0} m`;
+            document.getElementById("telemetry-drone-id").textContent = data.drone_id || `#${orderId}`;
             document.getElementById("telemetry-battery").textContent = `${data.battery || 0}%`;
 
             const pos = [data.lat || 3.8480, data.lng || 11.5021];
 
-            // Mettre à jour la carte Leaflet
             if (!droneMarker) {
-                droneMarker = L.marker(pos).addTo(trackingMap).bindPopup(`<b>Drone ${data.drone_id}</b><br>En livraison`).openPopup();
+                droneMarker = L.marker(pos).addTo(trackingMap).bindPopup(`<b>Drone ${data.drone_id || ''}</b><br>En livraison`).openPopup();
             } else {
                 droneMarker.setLatLng(pos);
             }
             trackingMap.panTo(pos);
+
+            if (data.statut === 'LIVREE') {
+                clearInterval(telemetryInterval);
+            }
 
         } catch (err) {
             console.error("Erreur télémétrie:", err);
@@ -160,7 +183,7 @@ const startTelemetryPolling = (orderId, token) => {
     };
 
     updateTelemetry();
-    telemetryInterval = setInterval(updateTelemetry, 3000); // Mise à jour toutes les 3 sec
+    telemetryInterval = setInterval(updateTelemetry, 3000);
 };
 
 // --- 5. ÉVÉNEMENTS DES MODALES ---
@@ -168,7 +191,11 @@ const setupOrderModalEvents = (token) => {
     const modalOrder = document.getElementById("modal-create-order");
     const modalTracking = document.getElementById("modal-drone-tracking");
 
-    document.getElementById("btn-open-order-modal")?.addEventListener("click", () => modalOrder.style.display = "flex");
+    document.getElementById("btn-open-order-modal")?.addEventListener("click", () => {
+        modalOrder.style.display = "flex";
+        fetchHopitauxVendeurs(token); // <--- Charge la liste à chaque ouverture de modale
+    });
+
     document.getElementById("close-order-modal")?.addEventListener("click", () => modalOrder.style.display = "none");
     document.getElementById("cancel-order-modal")?.addEventListener("click", () => modalOrder.style.display = "none");
 
@@ -180,25 +207,37 @@ const setupOrderModalEvents = (token) => {
     // Formulaire de création de demande
     document.getElementById("form-create-order")?.addEventListener("submit", async (e) => {
         e.preventDefault();
+
+        const selectedHospitalId = document.getElementById("select-hopital-vendeur").value;
+        if (!selectedHospitalId) {
+            showToast("Veuillez sélectionner un hôpital destinataire", "error");
+            return;
+        }
+
         const payload = {
-            hopital_destinataire: document.getElementById("order-hospital").value,
+            id_hopital_vendeur: selectedHospitalId, // <--- ID correct transmis au backend
             groupe_sanguin: document.getElementById("order-blood-group").value,
-            quantite: parseInt(document.getElementById("order-quantity").value, 10),
+            quantite_poches: parseInt(document.getElementById("order-quantity").value, 10),
             urgence: document.getElementById("order-urgency").value
         };
 
-        const res = await fetch('/api/commandes/creer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(payload)
-        });
+        try {
+            const res = await fetch('/api/commandes/creer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
 
-        if (res.ok) {
-            showToast("Demande transmise avec succès", "success");
-            modalOrder.style.display = "none";
-            fetchOrders(token);
-        } else {
-            showToast("Erreur lors de l'émission de la commande", "error");
+            if (res.ok) {
+                showToast("Demande transmise avec succès", "success");
+                modalOrder.style.display = "none";
+                document.getElementById("form-create-order").reset();
+                fetchOrders(token);
+            } else {
+                showToast("Erreur lors de l'émission de la commande", "error");
+            }
+        } catch (err) {
+            showToast("Erreur réseau lors de la création de la commande", "error");
         }
     });
 };

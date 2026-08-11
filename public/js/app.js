@@ -5,10 +5,21 @@ import { initStockModule } from './modules/stock.js';
 import { initOrdersModule } from './modules/orders.js';
 import { initDonorsModule } from './modules/donors.js';
 import { initSettingsModule } from './modules/settings.js';
+import { initPredictionsModule } from './modules/predictions.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Vérification du token d'authentification
     const token = checkAuth();
+
+    // Un compte SUPER_ADMIN n'a pas vocation à utiliser l'espace Hôpital :
+    // on le redirige vers son espace dédié s'il atterrit ici (ex. lien direct).
+    try {
+        const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+        if (userInfo.role === 'SUPER_ADMIN') {
+            window.location.href = "/admin.html";
+            return;
+        }
+    } catch (e) { /* pas de rôle enregistré, on continue normalement */ }
 
     // 2. Écoute des clics sur les liens du menu latéral
     const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -28,6 +39,52 @@ document.addEventListener('DOMContentLoaded', () => {
             loadView(viewName, token);
         });
     });
+    const fabContainer = document.getElementById('fab-container');
+    const fabTrigger = document.getElementById('fab-main-trigger');
+    const fabAddBag = document.getElementById('fab-add-bag');
+    const fabPlaceOrder = document.getElementById('fab-place-order');
+
+    // Toggle du menu flottant au clic sur le bouton principal
+    if (fabTrigger) {
+        fabTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fabContainer.classList.toggle('active');
+        });
+    }
+
+    // Fermer le menu si l'utilisateur clique n'importe où ailleurs sur la page
+    document.addEventListener('click', (e) => {
+        if (fabContainer && !fabContainer.contains(e.target)) {
+            fabContainer.classList.remove('active');
+        }
+    });
+
+    // Événement : Ajouter une poche
+    if (fabAddBag) {
+        fabAddBag.addEventListener('click', () => {
+            fabContainer.classList.remove('active');
+            // Si vous avez une modale d'ajout globale ou sur la page
+            const modalAdd = document.getElementById("modal-add-stock") || document.getElementById("modal-add-bag");
+            if (modalAdd) {
+                modalAdd.style.display = "flex";
+            } else {
+                // Sinon on charge la vue stock et on ouvre la modale
+                loadView('stock', token).then(() => {
+                    document.getElementById("modal-add-stock")?.setAttribute("style", "display: flex;");
+                });
+            }
+        });
+    }
+
+    // Événement : Passer une commande
+    if (fabPlaceOrder) {
+        fabPlaceOrder.addEventListener('click', () => {
+            fabContainer.classList.remove('active');
+            // Basculer vers la vue des commandes
+            const ordersNav = document.querySelector('[data-target="orders"]');
+            if (ordersNav) ordersNav.click();
+        });
+    }
 
     // 3. Gestion de la déconnexion
     const logoutBtn = document.getElementById('logout-btn');
@@ -82,6 +139,10 @@ async function loadView(viewName, token) {
 
             case 'donors':
                 initDonorsModule(token);
+                break;
+
+            case 'predictions':
+                initPredictionsModule(token);
                 break;
 
             case 'settings':

@@ -1,3 +1,4 @@
+// ./public/js/modules/settings.js
 import { showToast } from './toast.js';
 
 export const initSettingsModule = (token) => {
@@ -22,6 +23,7 @@ export const initSettingsModule = (token) => {
     setupSettingsNavigation();
     setupThemeToggle();
     setupSettingsForms(token);
+    setupAddUserForm(token);
     fetchUsersList(token);
 };
 
@@ -85,22 +87,123 @@ const fetchUsersList = async (token) => {
         }
 
         users.forEach(u => {
+            const isActif = u.statut_compte === 'ACTIF';
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td><strong>${u.nom || u.email}</strong></td>
-                <td><span class="badge status-emise">${u.role || 'PERSONNEL'}</span></td>
-                <td><span class="badge-status ok">${u.statut_compte === 'ACTIF' ? 'ACTIF' : 'SUSPENDU'}</span></td>
+                <td><span class="badge status-emise">${u.role}</span></td>
+                <td><span class="badge-status ${isActif ? 'ok' : 'critique'}">${u.statut_compte}</span></td>
                 <td>
-                    <button class="btn-sm btn-secondary btn-edit-user" data-id="${u.id_utilisateur}">
-                        <i class="fa-solid fa-pen"></i> Droits
+                    <button class="btn-sm ${isActif ? 'btn-secondary' : 'btn-primary'} btn-toggle-status" 
+                            data-id="${u.id_utilisateur}" 
+                            data-statut="${isActif ? 'SUSPENDU' : 'ACTIF'}">
+                        <i class="fa-solid ${isActif ? 'fa-user-slash' : 'fa-user-check'}"></i> 
+                        ${isActif ? 'Suspendre' : 'Activer'}
                     </button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
+
+        // Écouteurs pour suspension / réactivation
+        document.querySelectorAll('.btn-toggle-status').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const userId = e.currentTarget.dataset.id;
+                const newStatus = e.currentTarget.dataset.statut;
+
+                try {
+                    const toggleRes = await fetch(`/api/utilisateurs/${userId}/statut`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ statut: newStatus })
+                    });
+
+                    if (toggleRes.ok) {
+                        showToast(`Compte ${newStatus === 'ACTIF' ? 'activé' : 'suspendu'}`, "info");
+                        fetchUsersList(token);
+                    } else {
+                        showToast("Erreur lors de la modification", "error");
+                    }
+                } catch (err) {
+                    showToast("Erreur serveur", "error");
+                }
+            });
+        });
+
     } catch (err) {
         console.error("Erreur utilisateurs:", err);
     }
+};
+
+// 3bis. AJOUT D'UN UTILISATEUR (Agent / Gestionnaire / Admin établissement)
+// Câble le formulaire #form-add-user présent dans settings.html, qui
+// n'était relié à aucun script : le bouton "Créer le compte" ne faisait
+// donc jamais d'appel API et aucun utilisateur n'était réellement créé.
+const setupAddUserForm = (token) => {
+    const openBtn = document.getElementById("btn-open-add-user");
+    const cancelBtn = document.getElementById("btn-cancel-add-user");
+    const card = document.getElementById("add-user-card");
+    const form = document.getElementById("form-add-user");
+
+    if (!form || !card) return;
+
+    const resetForm = () => {
+        form.reset();
+        card.style.display = "none";
+    };
+
+    openBtn?.addEventListener("click", () => {
+        card.style.display = card.style.display === "none" ? "block" : "none";
+    });
+
+    cancelBtn?.addEventListener("click", () => resetForm());
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const nom = document.getElementById("new-user-name").value.trim();
+        const email = document.getElementById("new-user-email").value.trim();
+        const password = document.getElementById("new-user-password").value;
+        const role = document.getElementById("new-user-role").value;
+
+        if (!nom || !email || !password || !role) {
+            showToast("Veuillez remplir tous les champs.", "error");
+            return;
+        }
+
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const res = await fetch('/api/utilisateurs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ nom, email, password, role })
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                showToast(data.message || "Erreur lors de la création de l'utilisateur.", "error");
+                return;
+            }
+
+            showToast("Utilisateur créé avec succès.", "success");
+            resetForm();
+            fetchUsersList(token); // Rafraîchit immédiatement la liste
+        } catch (err) {
+            console.error("Erreur création utilisateur :", err);
+            showToast("Erreur de connexion au serveur.", "error");
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    });
 };
 
 // 4. FORMULAIRES DE CONFIGURATION

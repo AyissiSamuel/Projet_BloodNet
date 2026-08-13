@@ -12,12 +12,14 @@ export const initOrdersModule = async (token) => {
 };
 
 // --- FONCTION DE CHARGEMENT DYNAMIQUE DES HÔPITAUX ---
+// order.js
 const fetchHopitauxVendeurs = async (token) => {
     const selectElem = document.getElementById("select-hopital-vendeur");
     if (!selectElem) return;
 
     try {
-        const res = await fetch('/api/hopitaux', {
+        // 1. Correction du path : /api/hospitals/all au lieu de /api/hopitaux/all
+        const res = await fetch('/api/hospitals/all', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -25,13 +27,13 @@ const fetchHopitauxVendeurs = async (token) => {
 
         const hopitaux = await res.json();
         
-        // Réinitialisation du select
         selectElem.innerHTML = '<option value="">-- Sélectionnez un hôpital --</option>';
 
         hopitaux.forEach(h => {
             const option = document.createElement('option');
-            option.value = h.id_hopital; // <--- Envoie l'UUID au serveur
-            option.textContent = h.nom_hopital; // <--- Affiche le Nom à l'utilisateur
+            // 2. Vérification des colonnes SQL (nom au lieu de nom_hopital selon ta table DB)
+            option.value = h.id_hopital; 
+            option.textContent = h.nom; 
             selectElem.appendChild(option);
         });
     } catch (err) {
@@ -39,7 +41,6 @@ const fetchHopitauxVendeurs = async (token) => {
         showToast("Impossible de charger la liste des hôpitaux", "error");
     }
 };
-
 // --- 1. GESTION DES ONGLETS (ÉMISES / REÇUES) ---
 const setupTabEvents = (token) => {
     const tabs = document.querySelectorAll(".tabs-container .tab-btn");
@@ -205,39 +206,59 @@ const setupOrderModalEvents = (token) => {
     });
 
     // Formulaire de création de demande
-    document.getElementById("form-create-order")?.addEventListener("submit", async (e) => {
-        e.preventDefault();
 
-        const selectedHospitalId = document.getElementById("select-hopital-vendeur").value;
-        if (!selectedHospitalId) {
-            showToast("Veuillez sélectionner un hôpital destinataire", "error");
-            return;
+document.getElementById("form-create-order")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const selectedHospitalId = document.getElementById("select-hopital-vendeur").value;
+    const bloodGroupValue = document.getElementById("order-blood-group").value; // ex: "A+"
+    const quantityValue = parseInt(document.getElementById("order-quantity").value, 10);
+
+    if (!selectedHospitalId) {
+        showToast("Veuillez sélectionner un hôpital destinataire", "error");
+        return;
+    }
+
+    // Extraction automatique du rhésus si présent à la fin de la chaîne (ex: "O+" -> groupe: "O", rhesus: "+")
+    let groupe = bloodGroupValue;
+    let rhesus = document.getElementById("order-rhesus")?.value || "";
+
+    if (!rhesus && /[+-]$/.test(bloodGroupValue)) {
+        rhesus = bloodGroupValue.slice(-1);
+        groupe = bloodGroupValue.slice(0, -1);
+    }
+
+    // Payload conforme à ce qu'attend commandeController.js
+    const payload = {
+        id_hopital_vendeur: selectedHospitalId,
+        groupe_sanguin: groupe,
+        rhesus: rhesus,
+        quantite: quantityValue // FIXED: "quantite" au lieu de "quantite_poches"
+    };
+
+    try {
+        const res = await fetch('/api/commandes/creer', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast("Demande transmise avec succès", "success");
+            modalOrder.style.display = "none";
+            document.getElementById("form-create-order").reset();
+            fetchOrders(token);
+        } else {
+            // Affiche le message d'erreur exact renvoyé par le backend
+            showToast(data.message || "Erreur lors de l'émission de la commande", "error");
         }
-
-        const payload = {
-            id_hopital_vendeur: selectedHospitalId, // <--- ID correct transmis au backend
-            groupe_sanguin: document.getElementById("order-blood-group").value,
-            quantite_poches: parseInt(document.getElementById("order-quantity").value, 10),
-            urgence: document.getElementById("order-urgency").value
-        };
-
-        try {
-            const res = await fetch('/api/commandes/creer', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.ok) {
-                showToast("Demande transmise avec succès", "success");
-                modalOrder.style.display = "none";
-                document.getElementById("form-create-order").reset();
-                fetchOrders(token);
-            } else {
-                showToast("Erreur lors de l'émission de la commande", "error");
-            }
-        } catch (err) {
-            showToast("Erreur réseau lors de la création de la commande", "error");
-        }
-    });
+    } catch (err) {
+        showToast("Erreur réseau lors de la création de la commande", "error");
+    }
+});
 };

@@ -41,24 +41,21 @@ exports.getPredictionReseau = async (req, res) => {
         }
         const hopitauxResult = await db.query(hopitauxQuery, params);
 
-        // Calcule la prédiction de chaque hôpital du périmètre (séquentiel
-        // pour rester simple, le volume reste faible en version test)
-        const predictionsParHopital = [];
-        for (const hopital of hopitauxResult.rows) {
-            const predictions = await predictionService.predireStockHopital(hopital.id_hopital);
-            predictionsParHopital.push({
-                id_hopital: hopital.id_hopital,
-                nom_hopital: hopital.nom,
-                region: hopital.region,
-                predictions
-            });
-        }
+        // OPTIMISATION : Calculs exécutés en parallèle via Promise.all
+        const predictionsParHopital = await Promise.all(
+            hopitauxResult.rows.map(async (hopital) => {
+                const predictions = await predictionService.predireStockHopital(hopital.id_hopital);
+                return {
+                    id_hopital: hopital.id_hopital,
+                    nom_hopital: hopital.nom,
+                    region: hopital.region,
+                    predictions
+                };
+            })
+        );
 
-        // --- Construction des suggestions de transfert ---
-        // Apparie chaque surplus à risque d'un hôpital avec une rupture
-        // imminente du même groupe sanguin dans un autre hôpital.
+        // Matching pour suggestions de transfert
         const suggestions = [];
-
         for (const source of predictionsParHopital) {
             for (const predSource of source.predictions) {
                 if (predSource.poches_a_risque.length === 0) continue;
@@ -81,7 +78,6 @@ exports.getPredictionReseau = async (req, res) => {
             }
         }
 
-        // Priorise les suggestions les plus urgentes (péremption la plus proche) en premier
         suggestions.sort((a, b) => a.jours_avant_perte - b.jours_avant_perte);
 
         res.status(200).json({

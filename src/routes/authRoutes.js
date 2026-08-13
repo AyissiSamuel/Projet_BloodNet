@@ -1,13 +1,15 @@
-// src/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 
-// Route d'inscription
-router.post('/register', authController.register);
+// @route   POST /api/auth/register-hospital
+// @desc    Inscription publique d'un hôpital + création de l'Admin Hôpital (en attente)
+// @access  Public
+router.post('/register-hospital', authController.registerHospital);
 
-// Route de connexion
-router.post('/login', authController.login);
-
+// @route   POST /api/auth/login
+// @desc    Connexion utilisateur (génération du token JWT)
+// @access  Public
+router.post('/login', authController.login);    
 
 module.exports = router;

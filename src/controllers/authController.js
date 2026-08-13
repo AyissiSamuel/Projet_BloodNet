@@ -3,49 +3,66 @@ const db = require('../../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// 1. INSCRIPTION D'UN UTILISATEUR (Agent d'hôpital, Admin, etc.)
-exports.register = async (req, res) => {
-    const { email, password, nom, role, id_hopital } = req.body;
+// 1. INSCRIPTION PUBLIQUE : Établissement + Admin Hôpital référent
+exports.registerHospital = async (req, res) => {
+    const { nom_hopital, region, telephone, nom_admin, email, mot_de_passe, adresse, latitude, longitude } = req.body;
 
-    if (!email || !password || !nom) {
-        return res.status(400).json({ message: "Le nom, l'email et le mot de passe sont obligatoires." });
+    if (!nom_hopital || !nom_admin || !email || !mot_de_passe) {
+        return res.status(400).json({ message: "Tous les champs obligatoires doivent être renseignés." });
     }
 
-    try {
-        // Hachage du mot de passe pour la sécurité
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+    const client = await db.connect();
 
-        // Insertion dans la table des utilisateurs (schéma core_identity)
-        //
-        // NOTE DE SÉCURITÉ : le rôle par défaut est volontairement 'ADMIN_HOPITAL'.
-        // Cette route d'auto-inscription publique ne doit jamais permettre la
-        // création d'un compte 'SUPER_ADMIN' — ce rôle à privilèges élevés
-        // (validation des hôpitaux, arbitrage des commandes réseau) doit être
-        // provisionné manuellement en base par l'équipe technique.
-        const queryText = `
-            INSERT INTO core_identity.utilisateurs (nom, email, mot_de_passe, role, id_hopital, date_inscription)
-            VALUES ($1, $2, $3, $4, $5, NOW())
-            RETURNING id_utilisateur, nom, email, role;
+    try {
+        await client.query('BEGIN');
+
+        // Création de l'hôpital avec coordonnées GPS
+        const insertHopitalQuery = `
+            INSERT INTO medical_logistics.hopitaux (nom, region, telephone, adresse, latitude, longitude, statut)
+            VALUES ($1, $2, $3, $4, $5, $6, 'EN_ATTENTE')
+            RETURNING id_hopital;
+        `;
+        const hopitalRes = await client.query(insertHopitalQuery, [
+            nom_hopital, 
+            region || null, 
+            telephone || null,
+            adresse || null,
+            latitude || null,
+            longitude || null
+        ]);
+        const targetHopitalId = hopitalRes.rows[0].id_hopital;
+
+        // Création de l'administrateur de l'établissement
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(mot_de_passe, salt);
+
+        const insertUserQuery = `
+            INSERT INTO core_identity.utilisateurs 
+                (nom, email, mot_de_passe, role, id_hopital, statut_compte, date_inscription)
+            VALUES ($1, $2, $3, 'ADMIN_HOPITAL', $4, 'EN_ATTENTE', NOW())
+            RETURNING id_utilisateur, nom, email, role, id_hopital, statut_compte;
         `;
 
-        const roleAutorise = (role === 'SUPER_ADMIN') ? 'ADMIN_HOPITAL' : (role || 'ADMIN_HOPITAL');
-        const values = [nom, email, hashedPassword, roleAutorise, id_hopital || null];
-        const result = await db.query(queryText, values);
+        const userRes = await client.query(insertUserQuery, [nom_admin, email, hashedPassword, targetHopitalId]);
+
+        await client.query('COMMIT');
 
         res.status(201).json({
-            message: "Utilisateur créé avec succès.",
-            user: result.rows[0]
+            message: "Demande d'inscription enregistrée. En attente de validation par l'administration.",
+            user: userRes.rows[0]
         });
+
     } catch (error) {
-        console.error("Erreur Inscription :", error);
-        if (error.code === '23505') { // Code d'erreur PostgreSQL pour contrainte unique (email existant)
+        await client.query('ROLLBACK');
+        console.error("Erreur Inscription Hôpital :", error);
+        if (error.code === '23505') {
             return res.status(400).json({ message: "Cet email est déjà utilisé." });
         }
         res.status(500).json({ message: "Une erreur est survenue lors de l'inscription." });
+    } finally {
+        client.release();
     }
 };
-
 // 2. CONNEXION (Génération du JWT)
 exports.login = async (req, res) => {
     const { email, password } = req.body;

@@ -1,6 +1,7 @@
+// src/middlewares/authMiddleware.js
 const jwt = require('jsonwebtoken');
 
-// Vérifie si l'utilisateur est connecté (Token valide)
+// 1. Vérifie si l'utilisateur est connecté (Token valide)
 exports.verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Récupère le token après "Bearer"
@@ -10,9 +11,6 @@ exports.verifyToken = (req, res, next) => {
     }
 
     try {
-        // Le fallback doit être strictement identique à celui utilisé lors de
-        // la signature du token dans authController.login, sous peine de
-        // rejeter systématiquement tous les tokens si JWT_SECRET est absent du .env.
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cle_secrete_par_defaut');
         req.user = decoded; // Contient id_utilisateur, role, id_hopital
         next();
@@ -21,7 +19,24 @@ exports.verifyToken = (req, res, next) => {
     }
 };
 
-// Vérifie si l'utilisateur est spécifiquement un SUPER_ADMIN
+// 2. Vérifie si le rôle de l'utilisateur fait partie des rôles autorisés
+exports.checkRole = (rolesAutorises = []) => {
+    return (req, res, next) => {
+        if (!req.user || !req.user.role) {
+            return res.status(401).json({ message: "Utilisateur non authentifié." });
+        }
+
+        if (!rolesAutorises.includes(req.user.role)) {
+            return res.status(403).json({ 
+                message: "Accès interdit. Vous n'avez pas les privilèges requis." 
+            });
+        }
+
+        next();
+    };
+};
+
+// 3. Vérifie si l'utilisateur est spécifiquement un SUPER_ADMIN
 exports.isSuperAdmin = (req, res, next) => {
     if (req.user && req.user.role === 'SUPER_ADMIN') {
         next();

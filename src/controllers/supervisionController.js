@@ -125,7 +125,7 @@ exports.getActiviteHopitaux = async (req, res) => {
                 h.telephone,
                 h.email,
                 h.statut,
-                h.date_inscription,
+                h.date_creation,
                 COALESCE(dons.total_dons, 0) AS dons_30j,
                 COALESCE(cmd_emises.total, 0) AS commandes_emises_30j,
                 COALESCE(cmd_recues.total, 0) AS commandes_recues_30j,

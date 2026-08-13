@@ -7,12 +7,15 @@
 // NOTE : ce routeur est monté directement sur /api (racine) dans server.js,
 // et non sous un préfixe /api/settings, pour respecter exactement les
 // chemins déjà appelés par le frontend existant.
+//
+// NOTE 2 : GET /api/utilisateurs a été déplacé dans userRoutes.js pour que
+// toutes les méthodes HTTP de /api/utilisateurs (GET/POST/PATCH) soient
+// déclarées dans un seul et même fichier de routes, plus lisible.
 const express = require('express');
 const router = express.Router();
 const settingsController = require('../controllers/settingsController');
 const { verifyToken } = require('../middlewares/authMiddleware');
 
-router.get('/utilisateurs', verifyToken, settingsController.getUsersList);
 router.patch('/utilisateurs/:id_utilisateur/droits', verifyToken, settingsController.updateUserRights);
 router.put('/utilisateurs/mot-de-passe', verifyToken, settingsController.changerMotDePasse);
 router.put('/hopital/profil', verifyToken, settingsController.updateHospitalProfile);

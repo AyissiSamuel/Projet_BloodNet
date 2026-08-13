@@ -83,26 +83,71 @@
             </div>
 
             <!-- PANNEAU 3 : RESTRICTIONS D'ACCÈS & ROLES (core_identity.utilisateurs) -->
-            <div id="pane-access" class="settings-pane" style="display: none;">
-                <h3>Gestion des Utilisateurs & Rôles</h3>
-                <p class="subtitle" style="margin-bottom: 1rem;">Contrôle des autorisations d'accès (`core_identity.utilisateurs`)</p>
+            <!-- Dans settings.html -> pane-access -->
+<div id="pane-access" class="settings-pane" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div>
+            <h3>Gestion des Utilisateurs & Rôles</h3>
+            <p class="subtitle">Contrôle des autorisations d'accès de votre établissement</p>
+        </div>
+        <button id="btn-open-add-user" class="btn-primary">
+            <i class="fa-solid fa-user-plus"></i> Ajouter un utilisateur
+        </button>
+    </div>
 
-                <div class="table-wrapper">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Utilisateur</th>
-                                <th>Rôle</th>
-                                <th>Statut</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="users-access-table-body">
-                            <!-- Rempli en JS -->
-                        </tbody>
-                    </table>
+    <!-- Formulaire d'ajout (Masqué par défaut) -->
+    <div id="add-user-card" class="card-box" style="display: none; margin-bottom: 1.5rem; background: #f8fafc; border: 1px solid #cbd5e1;">
+        <h4>Nouvel Utilisateur</h4>
+        <form id="form-add-user" style="margin-top: 1rem;">
+            <div class="form-row" style="display: flex; gap: 1rem;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="new-user-name">Nom complet</label>
+                    <input type="text" id="new-user-name" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="new-user-email">Email professionnel</label>
+                    <input type="email" id="new-user-email" required>
                 </div>
             </div>
+            <div class="form-row" style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="new-user-password">Mot de passe provisoire</label>
+                    <input type="password" id="new-user-password" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="new-user-role">Rôle / Attributions</label>
+                    <select id="new-user-role" required>
+                        <option value="AGENT_HOPITAL">Agent Hôpital (Saisie de stock & dons)</option>
+                        <option value="GESTIONNAIRE_STOCK">Gestionnaire de Stock</option>
+                    </select>
+                    <!-- NOTE : "Administrateur Hôpital" retiré de cette liste. Ce rôle
+                         ne peut être attribué que par un SUPER_ADMIN (voir userController.js,
+                         règle métier), un ADMIN_HOPITAL qui tentait de le sélectionner ici
+                         recevait systématiquement une erreur 403 du serveur. -->
+                </div>
+            </div>
+            <div style="margin-top: 1rem; display: flex; gap: 10px;">
+                <button type="submit" class="btn-primary">Créer le compte</button>
+                <button type="button" id="btn-cancel-add-user" class="btn-secondary">Annuler</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Table des utilisateurs -->
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Utilisateur</th>
+                    <th>Rôle</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="users-access-table-body"></tbody>
+        </table>
+    </div>
+</div>
 
         </div>
     </div>

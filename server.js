@@ -29,6 +29,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ==========================================
 const authRoutes = require('./src/routes/authRoutes');
 app.use('/api/auth', authRoutes);
+const userRoutes = require('./src/routes/userRoutes');
+app.use('/api/utilisateurs', userRoutes);
 const hospitalRoutes = require('./src/routes/hospitalRoutes');
 app.use('/api/hospitals', hospitalRoutes);
 const stockRoutes = require('./src/routes/stockRoutes');

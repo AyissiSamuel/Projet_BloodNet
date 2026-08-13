@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BloodNet — Demande d'Agrément / Inscription Établissement</title>
+    <title>BloodNet — Demande d'Agrément Établissement</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #F8F9FA; font-family: system-ui, -apple-system, sans-serif; padding: 20px 0; }
-        .register-card { background: #FFF; width: 100%; max-width: 580px; padding: 30px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        .register-header { text-align: center; margin-bottom: 25px; }
+        .register-card { background: #FFF; width: 100%; max-width: 600px; padding: 30px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .register-header { text-align: center; margin-bottom: 20px; }
         .register-header h1 { font-size: 1.8rem; color: #0A192F; margin: 0 0 5px 0; }
         .register-header h1 span { color: #DC2626; }
         .register-header p { font-size: 0.85rem; color: #64748B; margin: 0; }
@@ -19,6 +19,7 @@
         .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 5px; }
         .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 6px; box-sizing: border-box; }
         .btn-block { width: 100%; padding: 12px; margin-top: 15px; background: #DC2626; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        .btn-geo { background: #0284C7; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; margin-top: 5px; }
         .alert-box { padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 15px; display: none; }
         .alert-danger { background: #FEE2E2; color: #991B1B; }
         .alert-success { background: #DCFCE7; color: #166534; }
@@ -27,19 +28,19 @@
 <body>
 
     <div class="register-card">
-        <div class="login-header register-header">
+        <div class="register-header">
             <h1>Blood<span>Net</span></h1>
-            <p>Inscription & Demande de Raccordement Réseau</p>
+            <p>Demande d'Agrément & Inscription de l'Établissement</p>
         </div>
 
         <div id="alert-box" class="alert-box"></div>
 
         <form id="register-form">
-            <!-- SECTION 1 : INFORMATIONS SUR L'ÉTABLISSEMENT -->
-            <div class="form-section-title"><i class="fa-solid fa-hospital"></i> Établissement Hospitalier</div>
+            <!-- SECTION 1 : INFORMATIONS DE L'ÉTABLISSEMENT -->
+            <div class="form-section-title"><i class="fa-solid fa-hospital"></i> Établissement Hospitalier / Banque de Sang</div>
             
             <div class="form-group">
-                <label for="nom_hopital">Nom Officiel de l'Hôpital / Banque de Sang</label>
+                <label for="nom_hopital">Nom Officiel de l'Hôpital</label>
                 <input type="text" id="nom_hopital" placeholder="Ex: Hôpital Régional de Douala" required>
             </div>
 
@@ -66,8 +67,25 @@
                 </div>
             </div>
 
-            <!-- SECTION 2 : COMPTE ADMINISTRATEUR LOCAL -->
-            <div class="form-section-title"><i class="fa-solid fa-user-shield"></i> Administrateur Référent</div>
+            <div class="form-group">
+                <label for="adresse">Adresse / Quartier</label>
+                <input type="text" id="adresse" placeholder="Ex: Melen, Rue 1.042">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="latitude">Latitude</label>
+                    <input type="number" step="any" id="latitude" placeholder="3.8480">
+                </div>
+                <div class="form-group">
+                    <label for="longitude">Longitude</label>
+                    <input type="number" step="any" id="longitude" placeholder="11.5021">
+                </div>
+            </div>
+            <button type="button" class="btn-geo" onclick="getGPS()"><i class="fa-solid fa-location-crosshairs"></i> Détecter Ma Position</button>
+
+            <!-- SECTION 2 : COMPTE ADMINISTRATEUR HÔPITAL REFERENT -->
+            <div class="form-section-title"><i class="fa-solid fa-user-shield"></i> Administrateur Référent (Admin Hôpital)</div>
 
             <div class="form-group">
                 <label for="nom_admin">Nom & Prénom du Responsable</label>
@@ -90,15 +108,24 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-primary btn-block" id="register-btn">Soumettre la Demande</button>
+            <button type="submit" class="btn-primary btn-block" id="register-btn">Soumettre la Demande d'Agrément</button>
         </form>
 
         <div style="text-align: center; margin-top: 15px;">
-            <a href="/login.html" style="color: #64748B; font-size: 0.85rem; text-decoration: none;">Déjà inscrit ? Se connecter</a>
+            <a href="/login.html" style="color: #64748B; font-size: 0.85rem; text-decoration: none;">Déjà un compte ? Se connecter</a>
         </div>
     </div>
 
     <script>
+        function getGPS() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    document.getElementById("latitude").value = pos.coords.latitude;
+                    document.getElementById("longitude").value = pos.coords.longitude;
+                }, () => alert("Impossible d'obtenir la géolocalisation."));
+            }
+        }
+
         document.getElementById("register-form").addEventListener("submit", async (e) => {
             e.preventDefault();
             const alertBox = document.getElementById("alert-box");
@@ -121,6 +148,9 @@
                 nom_hopital: document.getElementById("nom_hopital").value,
                 region: document.getElementById("region").value,
                 telephone: document.getElementById("telephone_hopital").value,
+                adresse: document.getElementById("adresse").value,
+                latitude: parseFloat(document.getElementById("latitude").value) || null,
+                longitude: parseFloat(document.getElementById("longitude").value) || null,
                 nom_admin: document.getElementById("nom_admin").value,
                 email: document.getElementById("email_admin").value,
                 mot_de_passe: password
@@ -137,7 +167,7 @@
 
                 if (res.ok) {
                     alertBox.className = "alert-box alert-success";
-                    alertBox.textContent = "Demande envoyée ! Votre compte sera activé après validation administrative.";
+                    alertBox.textContent = "Demande envoyée ! Votre établissement et votre compte Admin seront activés après validation par le réseau.";
                     alertBox.style.display = "block";
                     document.getElementById("register-form").reset();
                 } else {
@@ -149,7 +179,7 @@
                 alertBox.style.display = "block";
             } finally {
                 btn.disabled = false;
-                btn.textContent = "Soumettre la Demande";
+                btn.textContent = "Soumettre la Demande d'Agrément";
             }
         });
     </script>

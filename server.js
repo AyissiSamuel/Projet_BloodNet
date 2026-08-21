@@ -35,6 +35,8 @@ const hospitalRoutes = require('./src/routes/hospitalRoutes');
 app.use('/api/hospitals', hospitalRoutes);
 const stockRoutes = require('./src/routes/stockRoutes');
 app.use('/api/stocks', stockRoutes);
+const dashboardRoutes = require('./src/routes/dashboardRoutes');
+app.use('/api/dashboard', dashboardRoutes);
 const donneurRoutes = require('./src/routes/donneurRoutes');
 app.use('/api/donneurs', donneurRoutes);
 const sosRoutes = require('./src/routes/sosRoutes');

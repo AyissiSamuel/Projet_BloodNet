@@ -1,102 +1,61 @@
 <div class="page-container">
     <div class="page-header">
         <div>
-            <h2>Gestion des Donneurs & Historique des Dons</h2>
-            <p class="subtitle">Registre des donneurs (nominatifs ou anonymes) et traçabilité des prélèvements</p>
+            <h2>Commandes B2B & Suivi Drone</h2>
+            <p class="subtitle">Demandes inter-hospitalières et suivi télémétrique des livraisons</p>
         </div>
-        <button class="btn-primary" id="btn-open-donor-modal">
-            <i class="fa-solid fa-user-plus"></i> Nouveau Donneur / Don
+        <button class="btn-primary" id="btn-open-order-modal">
+            <i class="fa-solid fa-paper-plane"></i> Nouvelle Demande de Sang
         </button>
     </div>
 
-    <!-- RECHERCHE & REGISTRE DES DONNEURS -->
+    <!-- ONGLETS : REÇUES / ÉMISES / SOS -->
+    <div class="tabs-container" style="margin-top: 1rem; border-bottom: 1px solid #e2e8f0; display: flex; gap: 1rem;">
+        <button class="tab-btn active" data-tab="emises"><i class="fa-solid fa-arrow-up-from-bracket"></i> Commandes Émises</button>
+        <button class="tab-btn" data-tab="recues"><i class="fa-solid fa-arrow-down-to-bracket"></i> Commandes Reçues</button>
+    </div>
+
+    <!-- TABLEAU DES COMMANDES -->
     <div class="card-box" style="margin-top: 1.5rem;">
-        <div class="table-header">
-            <h3><i class="fa-solid fa-address-book"></i> Registre des Donneurs</h3>
-            <div class="search-box">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="donor-search-input" placeholder="Nom, Téléphone ou Code Donneur...">
-            </div>
-        </div>
         <div class="table-wrapper">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Code Donneur</th>
-                        <th>Identité</th>
+                        <th>N° Commande</th>
+                        <th>Hôpital Partenaire</th>
                         <th>Groupe Sanguin</th>
-                        <th>Contact / Ville</th>
-                        <th>Nb de Dons</th>
-                        <th>Dernier Don</th>
+                        <th>Quantité</th>
+                        <th>Statut Métier</th>
+                        <th>Statut Drone</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody id="donors-table-body">
-                    <!-- Rempli en JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- HISTORIQUE RÉCENT DES DONS (PARTIE INFÉRIEURE) -->
-    <div class="card-box" style="margin-top: 1.5rem;">
-        <div class="table-header">
-            <h3><i class="fa-solid fa-hand-holding-medical"></i> Historique Global des Prélèvements</h3>
-        </div>
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Date du Don</th>
-                        <th>Code Donneur</th>
-                        <th>Groupe Sanguin</th>
-                        <th>Volume Prlevé</th>
-                        <th>Lieu / Prélèveur</th>
-                        <th>Statut Sérologique</th>
-                    </tr>
-                </thead>
-                <tbody id="donations-history-table-body">
-                    <!-- Rempli en JS -->
+                <tbody id="orders-table-body">
+                    <!-- Rempli dynamiquement en JS -->
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-<!-- MODALE DE Saisie / AJOUT DE DONNEUR -->
-<div class="modal-overlay" id="modal-add-donor" style="display: none;">
+<!-- MODALE : CRÉATION DE DEMANDE B2B -->
+<div class="modal-overlay" id="modal-create-order" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Enregistrer un Donneur ou un Prélèvement</h3>
-            <button class="close-btn" id="close-donor-modal">&times;</button>
+            <h3>Émettre une Demande Inter-Hospitalière</h3>
+            <button class="close-btn" id="close-order-modal">&times;</button>
         </div>
-        <form id="form-add-donor">
-            
-            <!-- OPTION ANONYMAT -->
-            <div class="form-group" style="background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 0;">
-                    <input type="checkbox" id="donor-is-anonymous">
-                    <strong>Donneur Anonyme</strong> (Génèrera un code identifiant automatique)
-                </label>
+        <form id="form-create-order">
+            <div class="form-group">
+                <label for="order-hospital">Hôpital Destinataire / Fournisseur</label>
+                <select id="select-hopital-vendeur" name="id_hopital_vendeur" class="form-control">
+                    <option value="">-- Sélectionnez un hôpital --</option>
+                </select>
             </div>
-
-            <div id="donor-personal-info" style="margin-top: 1rem;">
-                <div class="form-row" style="display: flex; gap: 1rem;">
-                    <div class="form-group" style="flex: 1;">
-                        <label for="donor-nom">Nom complet</label>
-                        <input type="text" id="donor-nom" placeholder="Ex: Eto'o Samuel">
-                    </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label for="donor-phone">Téléphone</label>
-                        <input type="tel" id="donor-phone" placeholder="+237 6...">
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-row" style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <div class="form-row" style="display: flex; gap: 1rem;">
                 <div class="form-group" style="flex: 1;">
-                    <label for="donor-blood-group">Groupe Sanguin</label>
-                    <select id="donor-blood-group" required>
+                    <label for="order-blood-group">Groupe Sanguin</label>
+                    <select id="order-blood-group" required>
                         <option value="O+">O+</option>
                         <option value="O-">O-</option>
                         <option value="A+">A+</option>
@@ -108,15 +67,46 @@
                     </select>
                 </div>
                 <div class="form-group" style="flex: 1;">
-                    <label for="donor-volume">Volume Prélevé (mL)</label>
-                    <input type="number" id="donor-volume" value="450" min="250" max="500" required>
+                    <label for="order-quantity">Nombre de Poches</label>
+                    <input type="number" id="order-quantity" value="2" min="1" max="20" required>
                 </div>
             </div>
-
-            <div class="modal-actions" style="margin-top: 1.5rem;">
-                <button type="button" class="btn-secondary" id="cancel-donor-modal">Annuler</button>
-                <button type="submit" class="btn-primary" id="submit-donor-btn">Valider l'Enregistrement</button>
+            <div class="form-group">
+                <label for="order-urgency">Niveau d'urgence</label>
+                <select id="order-urgency" required>
+                    <option value="NORMALE">Normale (Livraison standard)</option>
+                    <option value="URGENTE">Urgente (Priorité moyenne)</option>
+                    <option value="CRITIQUE">Vitale / SOS Urgent (Déploiement immédiat)</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancel-order-modal">Annuler</button>
+                <button type="submit" class="btn-primary" id="submit-order-btn">Envoyer la Demande</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- MODALE : CARTE DE SUIVI EN DIRECT DU DRONE -->
+<div class="modal-overlay" id="modal-drone-tracking" style="display: none;">
+    <div class="modal-content" style="max-width: 800px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-drone"></i> Suivi du Vol Drone — <span id="tracking-order-id">#CMD-000</span></h3>
+            <button class="close-btn" id="close-tracking-modal">&times;</button>
+        </div>
+        <div style="padding: 1rem 0;">
+            <!-- INFOS TÉLÉMÉTRIE EN TEMPS RÉEL -->
+            <!-- NOTE : seuls drone_id, position et batterie sont réellement
+                 persistés en base (drone_telemetry.commandes) ; vitesse et
+                 altitude ne sont pas des données disponibles côté serveur. -->
+            <div class="telemetry-bar" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem; background: #f8fafc; padding: 10px; border-radius: 8px; text-align: center;">
+                <div><small style="color: #64748b;">Drone ID</small><br><strong id="telemetry-drone-id">DRONE-01</strong></div>
+                <div><small style="color: #64748b;">Vitesse</small><br><strong id="telemetry-speed">0 km/h</strong></div>
+                <div><small style="color: #64748b;">Altitude</small><br><strong id="telemetry-altitude">0 m</strong></div>
+                <div><small style="color: #64748b;">Batterie</small><br><strong id="telemetry-battery" style="color: #16a34a;">--%</strong></div>
+            </div>
+            <!-- CONTENEUR CARTE LEAFLET -->
+            <div id="drone-map" style="height: 380px; width: 100%; border-radius: 8px; border: 1px solid #cbd5e1;"></div>
+        </div>
     </div>
 </div>

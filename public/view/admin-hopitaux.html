@@ -1,76 +1,95 @@
-<div class="page-container">
-    <div class="page-header">
-        <div>
-            <h2>Validation des Établissements</h2>
-            <p class="subtitle">Approbation des demandes d'adhésion et gestion des comptes hospitaliers du réseau</p>
+<!-- STATISTIQUES RAPIDES (KPIs) -->
+<section class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-icon blue">
+            <i class="fa-solid fa-droplet"></i>
         </div>
-
-        <!-- BADGE DEMANDES EN ATTENTE -->
-        <div style="background: #fef3c7; color: #92400e; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; border: 1px solid #fde68a;">
-            <i class="fa-solid fa-triangle-exclamation"></i> <span id="pending-hospitals-count">0</span> demande(s) en attente
+        <div class="kpi-info">
+            <span class="kpi-title">Poches en Stock</span>
+            <h3 class="kpi-value" id="kpi-total-stock">--</h3>
+            <span class="kpi-status status-ok"><i class="fa-solid fa-circle-check"></i> Dispo en réserve</span>
         </div>
     </div>
 
-    <!-- TABLEAU DES HÔPITAUX EN ATTENTE DE VALIDATION -->
-    <div class="card-box" style="margin-top: 1.5rem;">
-        <div class="table-header">
-            <h3><i class="fa-solid fa-hospital-user"></i> Demandes d'Adhésion en Attente</h3>
+    <div class="kpi-card">
+        <div class="kpi-icon orange">
+            <i class="fa-solid fa-triangle-exclamation"></i>
         </div>
+        <div class="kpi-info">
+            <span class="kpi-title">Stock Critique</span>
+            <h3 class="kpi-value" id="kpi-critical-stock">--</h3>
+            <span class="kpi-status status-alert"><i class="fa-solid fa-triangle-exclamation"></i> Urgence ou &lt; 5j</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-icon blue">
+            <i class="fa-solid fa-truck-medical"></i>
+        </div>
+        <div class="kpi-info">
+            <span class="kpi-title">Commandes en Cours</span>
+            <h3 class="kpi-value" id="kpi-pending-orders">--</h3>
+            <span class="kpi-status"><i class="fa-solid fa-clock"></i> En transit / attente</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-icon green">
+            <i class="fa-solid fa-user-plus"></i>
+        </div>
+        <div class="kpi-info">
+            <span class="kpi-title">Donneurs Actifs</span>
+            <h3 class="kpi-value" id="kpi-active-donors">--</h3>
+            <span class="kpi-status status-ok"><i class="fa-solid fa-calendar-days"></i> Ce dernier mois</span>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION PRINCIPALE : GRAPHIQUE STOCK & CARTE MAP -->
+<section class="dashboard-main-grid">
+    <!-- Graphique du Stock de Sang par Groupe -->
+    <div class="card chart-card">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-chart-bar"></i> État du Stock par Groupe Sanguin</h2>
+            <button class="btn-sm btn-outline" id="refresh-stock-btn">
+                <i class="fa-solid fa-rotate-right"></i> Actualiser
+            </button>
+        </div>
+        <div class="card-body">
+            <canvas id="stockChart" height="250"></canvas>
+        </div>
+    </div>
+
+    <!-- Carte Interactive des Banques Interconnectées -->
+    <div class="card map-card">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-map-location-dot"></i> Réseau & Banques Proches</h2>
+        </div>
+        <div class="card-body map-container">
+            <div id="map" style="height: 250px; width: 100%; border-radius: 8px;"></div>
+        </div>
+    </div>
+</section>
+
+
+<!-- STOCK DES HÔPITAUX AFFILIÉS PAR GROUPE SANGUIN -->
+<section class="card recent-activity-card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-hospital"></i> Stock des Hôpitaux Affiliés</h2>
+    </div>
+    <div class="card-body">
         <div class="table-wrapper">
             <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Nom de l'Établissement</th>
-                        <th>Adresse</th>
-                        <th>Téléphone</th>
-                        <th>Région</th>
-                        <th>Action</th>
-                    </tr>
+                <thead id="affiliated-stock-thead">
+                    <!-- Injecté dynamiquement (colonnes = groupes sanguins) -->
                 </thead>
-                <tbody id="pending-hospitals-table-body">
-                    <!-- Rempli en JS -->
+                <tbody id="recent-orders-tbody">
+                    <!-- Injecté dynamiquement par fetchAffiliatedHospitalsStock (stock.js) -->
+                    <tr>
+                        <td colspan="10" class="text-center">Chargement des données...</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
-
-    <!-- TABLEAU DE L'ENSEMBLE DU RÉSEAU (actifs + désactivés) -->
-    <div class="card-box" style="margin-top: 1.5rem;">
-        <div class="table-header">
-            <h3><i class="fa-solid fa-network-wired"></i> Réseau d'Établissements</h3>
-        </div>
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Nom de l'Établissement</th>
-                        <th>Région</th>
-                        <th>Téléphone</th>
-                        <th>Statut</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="all-hospitals-table-body">
-                    <!-- Rempli en JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- MODALE DE CONFIRMATION -->
-<div class="modal-overlay" id="modal-confirm-hospital" style="display: none;">
-    <div class="modal-content" style="max-width: 480px; width: 90%;">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-circle-question"></i> Confirmation</h3>
-            <button class="close-btn" id="close-confirm-hospital-modal">&times;</button>
-        </div>
-        <div style="padding: 1rem 0;">
-            <p id="confirm-hospital-message">Êtes-vous sûr de vouloir effectuer cette action ?</p>
-            <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem;">
-                <button type="button" class="btn-secondary" id="btn-cancel-hospital-action">Annuler</button>
-                <button type="button" class="btn-primary" id="btn-confirm-hospital-action">Confirmer</button>
-            </div>
-        </div>
-    </div>
-</div>
+</section>

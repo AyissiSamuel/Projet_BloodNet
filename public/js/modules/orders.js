@@ -154,30 +154,31 @@ const startTelemetryPolling = (orderId, token) => {
 
     const updateTelemetry = async () => {
         try {
-            const res = await fetch(`/api/drones/telemetrie/${orderId}`, {
+            // FIXED: /api/commandes/telemetrie/ au lieu de /api/drones/telemetrie/
+            const res = await fetch(`/api/commandes/telemetrie/${orderId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-
+    
             if (!res.ok) return;
-
+    
             const data = await res.json(); 
-
+    
             document.getElementById("telemetry-drone-id").textContent = data.drone_id || `#${orderId}`;
             document.getElementById("telemetry-battery").textContent = `${data.battery || 0}%`;
-
+    
             const pos = [data.lat || 3.8480, data.lng || 11.5021];
-
+    
             if (!droneMarker) {
                 droneMarker = L.marker(pos).addTo(trackingMap).bindPopup(`<b>Drone ${data.drone_id || ''}</b><br>En livraison`).openPopup();
             } else {
                 droneMarker.setLatLng(pos);
             }
             trackingMap.panTo(pos);
-
+    
             if (data.statut === 'LIVREE') {
                 clearInterval(telemetryInterval);
             }
-
+    
         } catch (err) {
             console.error("Erreur télémétrie:", err);
         }

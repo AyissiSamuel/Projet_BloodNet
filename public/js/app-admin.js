@@ -13,7 +13,7 @@ import { initAdminHopitauxModule } from './modules/admin-hopitaux.js';
 import { initAdminZonesModule } from './modules/admin-zones.js';
 import { initAdminSettingsModule } from './modules/admin-settings.js';
 import { initAdminCarteModule } from './modules/admin-carte.js';
-import { initPredictionsModule } from './modules/predictions.js';
+import { initAdminPredictionsModule } from './modules/admin-predictions.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const token = checkAuth('SUPER_ADMIN');
@@ -77,8 +77,8 @@ async function loadView(viewName, token) {
                 initAdminOrdersModule(token);
                 break;
 
-            case 'predictions':
-                initPredictionsModule(token);
+            case 'admin-predictions':
+                initAdminPredictionsModule(token);
                 break;
 
             case 'admin-carte':

@@ -10,4 +10,7 @@ router.post('/register', hospitalController.registerHospital);
 // Route pour l'historique/liste des hôpitaux — protégée
 router.get('/all', verifyToken, hospitalController.getAllHospitals);
 
+// src/routes/hospitalRoutes.js
+router.get('/overview', verifyToken, hospitalController.getHospitalsOverview);
+
 module.exports = router;

@@ -57,6 +57,9 @@ const renderPendingTable = (hopitaux, token) => {
                 <button class="btn-sm btn-success btn-validate-hopital" data-id="${h.id_hopital}" data-nom="${h.nom}">
                     <i class="fa-solid fa-check"></i> Valider
                 </button>
+                <button class="btn-sm btn-danger btn-reject-hopital" data-id="${h.id_hopital}" data-nom="${h.nom}">
+                    <i class="fa-solid fa-xmark"></i> Rejeter
+                </button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -69,6 +72,18 @@ const renderPendingTable = (hopitaux, token) => {
                 message: `Confirmer l'activation du compte de "${nom}" ? L'établissement pourra ensuite accéder à la plateforme.`,
                 action: async () => {
                     await patchHopitalStatut(id, 'valider', token);
+                }
+            });
+        });
+    });
+
+    document.querySelectorAll(".btn-reject-hopital").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const { id, nom } = e.currentTarget.dataset;
+            openConfirmModal({
+                message: `Confirmer le rejet de la demande de "${nom}" ? L'établissement ne pourra pas accéder à la plateforme.`,
+                action: async () => {
+                    await patchHopitalStatut(id, 'rejeter', token);
                 }
             });
         });
@@ -130,7 +145,8 @@ const patchHopitalStatut = async (id, action, token) => {
         });
 
         if (res.ok) {
-            showToast(`Établissement ${action === 'valider' ? 'validé' : 'désactivé'} avec succès`, "success");
+            const libelles = { valider: 'validé', rejeter: 'rejeté', desactiver: 'désactivé' };
+            showToast(`Établissement ${libelles[action] || 'mis à jour'} avec succès`, "success");
             await fetchHopitaux(token);
         } else {
             showToast("Erreur lors de la mise à jour du statut", "error");

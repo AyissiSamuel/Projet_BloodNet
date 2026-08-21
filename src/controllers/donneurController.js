@@ -29,7 +29,7 @@ exports.registerDonneur = async (req, res) => {
         `;
 
         const values = [
-            nomFinal,
+            nom,
             telephone,
             email || null,
             groupe_sanguin.toUpperCase(),
@@ -80,13 +80,28 @@ exports.searchDonneurs = async (req, res) => {
     }
 };
 
-// 3. Liste complète des donneurs (attendue par le frontend : GET /api/donneurs)
+// 3. Liste des donneurs AYANT DÉJÀ DONNÉ DANS L'HÔPITAL CONNECTÉ (attendue
+// par le frontend : GET /api/donneurs)
 //
-// Alignée sur les champs réellement consommés par public/js/modules/donors.js :
-// code_donneur (dérivé de l'UUID, car aucune colonne dédiée n'existe),
-// nom_complet (alias de la colonne réelle "nom"), total_dons et dernier_don
-// calculés depuis historique_dons plutôt que stockés en dur sur donneurs.
+// CORRECTIF : cette liste était auparavant globale (tous les donneurs de
+// toutes les structures, sans filtre), car la table medical_logistics.donneurs
+// n'a pas de colonne id_hopital — un donneur est une entité indépendante,
+// seul son historique de dons (historique_dons.id_hopital_prelevement) est
+// rattaché à un établissement précis. On restreint donc désormais la liste
+// aux donneurs ayant au moins un don enregistré dans l'hôpital connecté
+// (INNER JOIN sur historique_dons filtré par hôpital), et les compteurs
+// total_dons / dernier_don ne portent eux aussi que sur cet hôpital — pas
+// sur l'activité globale du donneur dans tout le réseau.
 exports.getAllDonneurs = async (req, res) => {
+    const id_hopital = req.user.id_hopital;
+
+    if (!id_hopital) {
+        // Compte sans hôpital rattaché (ex. SUPER_ADMIN) : cette vue n'a pas
+        // de sens à l'échelle réseau ici, on renvoie une liste vide plutôt
+        // qu'un mélange de tous les hôpitaux.
+        return res.status(200).json([]);
+    }
+
     try {
         const result = await db.query(
             `SELECT 
@@ -98,15 +113,14 @@ exports.getAllDonneurs = async (req, res) => {
                 d.groupe_sanguin,
                 d.est_anonyme,
                 d.statut_eligibilite,
-                COALESCE(hist.total_dons, 0) AS total_dons,
-                hist.dernier_don
+                COUNT(h.id_don) AS total_dons,
+                MAX(h.date_don) AS dernier_don
              FROM medical_logistics.donneurs d
-             LEFT JOIN (
-                SELECT id_donneur, COUNT(*) AS total_dons, MAX(date_don) AS dernier_don
-                FROM medical_logistics.historique_dons
-                GROUP BY id_donneur
-             ) hist ON hist.id_donneur = d.id_donneur
-             ORDER BY hist.dernier_don DESC NULLS LAST;`
+             INNER JOIN medical_logistics.historique_dons h 
+                ON h.id_donneur = d.id_donneur AND h.id_hopital_prelevement = $1
+             GROUP BY d.id_donneur, d.nom, d.telephone, d.email, d.groupe_sanguin, d.est_anonyme, d.statut_eligibilite
+             ORDER BY dernier_don DESC NULLS LAST;`,
+            [id_hopital]
         );
         res.status(200).json(result.rows);
     } catch (error) {
@@ -252,15 +266,19 @@ exports.getHistoriqueDonneur = async (req, res) => {
     }
 };
 
-// 6. Historique global des dons (attendu par le frontend : GET /api/donneurs/historique-dons)
+// 6. Historique des dons DE L'HÔPITAL CONNECTÉ (attendu par le frontend :
+// GET /api/donneurs/historique-dons)
 //
-// Alignée sur les champs consommés par public/js/modules/donors.js :
-// code_donneur (dérivé de l'UUID donneur), groupe_sanguin (récupéré depuis
-// donneurs, absent de historique_dons), lieu_prelevement (alias du nom
-// d'hôpital). statut_serologique n'existe dans aucune table du schéma réel :
-// affiché en dur côté frontend via un fallback ("CONFORME" par défaut), non
-// modélisé côté base pour l'instant.
+// CORRECTIF : renvoyait auparavant l'historique de TOUS les hôpitaux
+// confondus (aucun filtre). Restreint désormais à id_hopital_prelevement =
+// hôpital connecté, cohérent avec getAllDonneurs ci-dessus.
 exports.getHistoriqueGlobal = async (req, res) => {
+    const id_hopital = req.user.id_hopital;
+
+    if (!id_hopital) {
+        return res.status(200).json([]);
+    }
+
     try {
         const result = await db.query(
             `SELECT 
@@ -276,12 +294,14 @@ exports.getHistoriqueGlobal = async (req, res) => {
              FROM medical_logistics.historique_dons h
              JOIN medical_logistics.donneurs d ON h.id_donneur = d.id_donneur
              JOIN medical_logistics.hopitaux hop ON h.id_hopital_prelevement = hop.id_hopital
+             WHERE h.id_hopital_prelevement = $1
              ORDER BY h.date_don DESC
-             LIMIT 100;`
+             LIMIT 100;`,
+            [id_hopital]
         );
         res.status(200).json(result.rows);
     } catch (error) {
-        console.error("Erreur récupération historique global :", error);
-        res.status(500).json({ message: "Impossible de récupérer l'historique global des dons." });
+        console.error("Erreur récupération historique donneurs :", error);
+        res.status(500).json({ message: "Impossible de récupérer l'historique des dons." });
     }
 };

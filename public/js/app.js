@@ -1,4 +1,3 @@
-// public/js/app.js
 import { checkAuth, logout } from './modules/auth.js';
 import { showToast } from './modules/toast.js';
 import { initStockModule } from './modules/stock.js';
@@ -8,85 +7,48 @@ import { initSettingsModule } from './modules/settings.js';
 import { initPredictionsModule } from './modules/predictions.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Vérification du token d'authentification
     const token = checkAuth();
 
-    // Un compte SUPER_ADMIN n'a pas vocation à utiliser l'espace Hôpital :
-    // on le redirige vers son espace dédié s'il atterrit ici (ex. lien direct).
+    // Dynamisation du profil utilisateur et de la structure hôpital
     try {
         const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+        
         if (userInfo.role === 'SUPER_ADMIN') {
             window.location.href = "/admin.html";
             return;
         }
-    } catch (e) { /* pas de rôle enregistré, on continue normalement */ }
 
-    // 2. Écoute des clics sur les liens du menu latéral
+        // Mise à jour de l'hôpital connecté
+        const hospitalNameElement = document.querySelector('.topbar-left .hospital-name');
+        if (hospitalNameElement && userInfo.nom_hopital) {
+            hospitalNameElement.innerHTML = `<i class="fa-solid fa-hospital" aria-hidden="true"></i> ${userInfo.nom_hopital}`;
+        }
+
+        // Mise à jour du badge/avatar utilisateur
+        const avatarElement = document.querySelector('.user-avatar');
+        if (avatarElement && userInfo.nom) {
+            const initials = userInfo.nom.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            avatarElement.textContent = initials;
+            avatarElement.title = `Session : ${userInfo.nom}`;
+        }
+    } catch (e) {
+        console.error("Erreur d'initialisation de la session utilisateur :", e);
+    }
+
+    // Navigation de la sidebar
     const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
-
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
-
-            // Gestion de la classe CSS active sur la sidebar
             navItems.forEach(nav => nav.classList.remove('active'));
             item.classList.add('active');
 
-            // Récupération de l'attribut data-target="..."
             const viewName = item.getAttribute('data-target');
-
-            // Chargement de la vue demandée
             loadView(viewName, token);
         });
     });
-    const fabContainer = document.getElementById('fab-container');
-    const fabTrigger = document.getElementById('fab-main-trigger');
-    const fabAddBag = document.getElementById('fab-add-bag');
-    const fabPlaceOrder = document.getElementById('fab-place-order');
 
-    // Toggle du menu flottant au clic sur le bouton principal
-    if (fabTrigger) {
-        fabTrigger.addEventListener('click', (e) => {
-            e.stopPropagation();
-            fabContainer.classList.toggle('active');
-        });
-    }
-
-    // Fermer le menu si l'utilisateur clique n'importe où ailleurs sur la page
-    document.addEventListener('click', (e) => {
-        if (fabContainer && !fabContainer.contains(e.target)) {
-            fabContainer.classList.remove('active');
-        }
-    });
-
-    // Événement : Ajouter une poche
-    if (fabAddBag) {
-        fabAddBag.addEventListener('click', () => {
-            fabContainer.classList.remove('active');
-            // Si vous avez une modale d'ajout globale ou sur la page
-            const modalAdd = document.getElementById("modal-add-stock") || document.getElementById("modal-add-bag");
-            if (modalAdd) {
-                modalAdd.style.display = "flex";
-            } else {
-                // Sinon on charge la vue stock et on ouvre la modale
-                loadView('stock', token).then(() => {
-                    document.getElementById("modal-add-stock")?.setAttribute("style", "display: flex;");
-                });
-            }
-        });
-    }
-
-    // Événement : Passer une commande
-    if (fabPlaceOrder) {
-        fabPlaceOrder.addEventListener('click', () => {
-            fabContainer.classList.remove('active');
-            // Basculer vers la vue des commandes
-            const ordersNav = document.querySelector('[data-target="orders"]');
-            if (ordersNav) ordersNav.click();
-        });
-    }
-
-    // 3. Gestion de la déconnexion
+    // Déconnexion
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
@@ -95,15 +57,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. Chargement de la vue par défaut (Accueil du Dashboard)
+    // Chargement de la vue initiale
     loadView('dashboard-home', token);
 });
 
-// 🔄 Fonction principale de chargement dynamique des vues HTML
 async function loadView(viewName, token) {
     const mainContent = document.getElementById('app-content');
-
-    // Display du loader pendant le téléchargement du fichier HTML
     mainContent.innerHTML = `
         <div class="loading-spinner">
             <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement de votre espace...
@@ -111,26 +70,20 @@ async function loadView(viewName, token) {
     `;
 
     try {
-        // Fetch du fragment HTML dans public/view/
         const response = await fetch(`/view/${viewName}.html`);
-
-        if (!response.ok) {
-            throw new Error(`Fichier /view/${viewName}.html introuvable (${response.status})`);
-        }
+        if (!response.ok) throw new Error(`Vue non trouvée: ${response.status}`);
 
         const html = await response.text();
-        
-        // Injection du HTML téléchargé dans la zone principale
         mainContent.innerHTML = html;
 
-        // Initialisation des scripts JS propres à la vue injectée
+        // Exécution des modules selon la vue injectée
         switch (viewName) {
             case 'dashboard-home':
-                initStockModule(token, true); 
+                initStockModule(token, true); // KPIs du tableau de bord
                 break;
 
             case 'stock':
-                initStockModule(token, false);
+                initStockModule(token, false); // Vue détaillée du stock
                 break;
 
             case 'orders':
@@ -148,24 +101,16 @@ async function loadView(viewName, token) {
             case 'settings':
                 initSettingsModule(token);
                 break;
-
-            default:
-                console.warn(`Aucun module JS associé à la vue : ${viewName}`);
-                break;
         }
 
     } catch (error) {
         console.error("Erreur lors du chargement de la vue :", error);
-        
-        // Affichage d'un message d'erreur propre au lieu de bloquer sur le spinner
         mainContent.innerHTML = `
             <div class="error-state" style="text-align: center; padding: 3rem;">
                 <i class="fa-solid fa-triangle-exclamation fa-2x" style="color: var(--danger-color, #e74c3c);"></i>
                 <p style="margin-top: 1rem;">Impossible de charger la vue <strong>${viewName}</strong>.</p>
-                <small style="color: #777;">Vérifiez que le fichier <code>public/view/${viewName}.html</code> existe bien.</small>
             </div>
         `;
-        
         showToast("Erreur lors du chargement de la vue", "error");
     }
 }

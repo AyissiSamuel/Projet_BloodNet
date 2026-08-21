@@ -72,11 +72,18 @@
                     localStorage.setItem('bloodnet_token', data.token);
                     
                     // Aligné avec vos colonnes (id_utilisateur, nom, role, etc.)
+                    // NOTE (correctif) : id_hopital et nom_hopital sont désormais
+                    // sauvegardés — ils manquaient ici, ce qui faisait que le nom
+                    // d'établissement affiché dans la topbar restait celui codé en
+                    // dur dans index.html ("Hôpital Central de Yaoundé") pour
+                    // tous les comptes, quel que soit l'hôpital réellement connecté.
                     localStorage.setItem('user_info', JSON.stringify({
                         id_utilisateur: data.user.id_utilisateur,
                         nom: data.user.nom,
                         email: data.user.email,
-                        role: data.user.role // 'SUPER_ADMIN', 'ADMIN_HOPITAL' ou 'PERSONNEL'
+                        role: data.user.role, // 'SUPER_ADMIN', 'ADMIN_HOPITAL' ou 'PERSONNEL'
+                        id_hopital: data.user.id_hopital,
+                        nom_hopital: data.user.nom_hopital
                     }));
 
                     // NOTE : authController.login ne renvoie pas de clé "hospital"

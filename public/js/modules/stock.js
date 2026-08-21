@@ -1,6 +1,8 @@
+//stock.js
 import { showToast } from './toast.js';
 
 let chartInstance = null;
+let dashboardMapInstance = null;
 
 export const initStockModule = async (token, isDashboardHome = false) => {
     // Initialisation conditionnelle de la carte 
@@ -9,10 +11,17 @@ export const initStockModule = async (token, isDashboardHome = false) => {
         if (mapElement._leaflet_id) {
             mapElement._leaflet_id = null;
         }
-        const map = L.map('map').setView([3.8480, 11.5021], 12);
+        dashboardMapInstance = L.map('map').setView([3.8480, 11.5021], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
-        }).addTo(map);
+        }).addTo(dashboardMapInstance);
+
+        // CORRECTIF : la carte n'affichait jusqu'ici aucun marqueur — le
+        // tileLayer était posé mais aucune donnée d'hôpital n'était jamais
+        // chargée ni affichée. On réutilise l'endpoint /api/hospitals/overview
+        // (déjà existant côté backend mais jamais appelé) pour poser un
+        // marqueur par hôpital affilié, avec un clic pour voir son stock.
+        await loadHospitalsOnMap(dashboardMapInstance, token);
     }
 
     // Attachement des écouteurs d'événements pour les modales et formulaires
@@ -22,13 +31,66 @@ export const initStockModule = async (token, isDashboardHome = false) => {
     
     if (isDashboardHome) {
         await fetchDashboardKPIs(token);
-        await fetchRecentActivity(token);
+        await fetchAffiliatedHospitalsStock(token);
     } else {
         setupStockEvents(token);
         setupFilterEvents(token);
         await fetchStockData(token);
     }
 };
+
+// --- CARTE : HÔPITAUX AFFILIÉS, VISIBILITÉ TEMPS RÉEL + CLIC POUR LE STOCK ---
+const loadHospitalsOnMap = async (map, token) => {
+    try {
+        const response = await fetch('/api/hospitals/overview', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error("Erreur de récupération des hôpitaux");
+
+        const hopitaux = await response.json();
+        const bounds = [];
+
+        hopitaux.forEach(h => {
+            const lat = parseFloat(h.latitude);
+            const lng = parseFloat(h.longitude);
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            const icone = L.divIcon({
+                className: '',
+                html: `<div style="background:#DC2626; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
+                iconSize: [14, 14]
+            });
+
+            const marker = L.marker([lat, lng], { icon: icone }).addTo(map);
+
+            // Le clic affiche le détail du stock par groupe sanguin (stock_details
+            // est un objet JSON { "O+": 12, "A-": 3, ... } renvoyé par le backend).
+            const stockLines = Object.entries(h.stock_details || {})
+                .map(([groupe, qte]) => `<span style="display:inline-block; width:48%; font-size:0.8rem;"><strong>${groupe}</strong> : ${qte}</span>`)
+                .join('');
+
+            marker.bindPopup(`
+                <strong>${h.nom}</strong><br>
+                <span style="color:#64748b; font-size:0.8rem;">${h.region || 'Région non renseignée'}</span><br>
+                <hr style="margin:6px 0;">
+                <strong>Stock total : ${h.total_poches} poche(s)</strong><br>
+                <div style="margin-top:4px;">${stockLines || '<em>Aucun stock disponible</em>'}</div>
+                <small style="color:#94a3b8;">${h.telephone || ''}</small>
+            `);
+
+            bounds.push([lat, lng]);
+        });
+
+        if (bounds.length > 0) {
+            map.fitBounds(bounds, { padding: [30, 30] });
+        }
+    } catch (err) {
+        console.error("Erreur chargement carte des hôpitaux :", err);
+        showToast("Impossible de charger la carte des hôpitaux affiliés", "error");
+    }
+};
+
 // --- MISE À JOUR DES KPI DANS LE DASHBOARD ---
 export const fetchDashboardKPIs = async (token) => {
     try {
@@ -66,7 +128,7 @@ export const fetchDashboardKPIs = async (token) => {
 // --- 1. CHARGEMENT DU STOCK ---
 const fetchStockData = async (token) => {
     try {
-        const response = await fetch('/api/stocks/aggregated', {
+        const response = await fetch('/api/poches/agrege', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -85,125 +147,144 @@ const fetchStockData = async (token) => {
 };
 
 // --- 2. RENDU DU TABLEAU ET CARTE DES STOCKS ---
-const renderStockTableAndCards = (stockItems) => {
+const renderStockTableAndCards = (data) => {
     const tbody = document.getElementById("stock-table-body");
     const cardsContainer = document.getElementById("stock-stat-cards");
 
-    if (tbody) tbody.innerHTML = "";
-    if (cardsContainer) cardsContainer.innerHTML = "";
+    if (!tbody || !cardsContainer) return;
 
-    if (!stockItems || stockItems.length === 0) {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Aucune poche en stock.</td></tr>`;
-        return;
-    }
+    tbody.innerHTML = "";
+    cardsContainer.innerHTML = "";
 
-    stockItems.forEach(item => {
-        let status = "ok";
-        let badgeLabel = "Suffisant";
-        if (item.total_count <= 2) { status = "crit"; badgeLabel = "Critique"; }
-        else if (item.total_count <= 5) { status = "warn"; badgeLabel = "Faible"; }
+    // 1. Mise à jour du tableau HTML
+    data.forEach(item => {
+        // Adaptation aux noms de colonnes SQL : groupe_sanguin, composant, quantite_disponible
+        const group = item.groupe_sanguin || "N/A";
+        const component = item.composant || "Non spécifié";
+        const count = parseInt(item.quantite_disponible, 10) || 0;
 
-        // Cartes
-        if (cardsContainer) {
-            const card = document.createElement("div");
-            card.className = `stat-card border-${status}`;
-            card.innerHTML = `
-                <div class="card-head"><span>${item.blood_group}</span><span class="status-badge ${status}">${badgeLabel}</span></div>
-                <div class="card-body"><span class="card-qty">${item.total_count}</span> <small>poches</small></div>
-            `;
-            cardsContainer.appendChild(card);
-        }
-
-        // Tableau
-        if (tbody) {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td><strong>${item.blood_group}</strong></td>
-                <td>${item.total_count} poche(s)</td>
-                <td>${(item.total_volume || 0).toLocaleString()} mL</td>
-                <td><span class="badge-status ${status}">${badgeLabel}</span></td>
-                <td>
-                    <button class="btn-sm btn-danger btn-use-modal" data-group="${item.blood_group}">Déstocker</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        }
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td><strong class="badge-blood">${group}</strong></td>
+            <td>${component}</td>
+            <td>${count} poche(s)</td>
+            <td>
+                <span class="status-badge ${count > 5 ? 'status-ok' : 'status-low'}">
+                    ${count > 5 ? 'En Stock' : 'Critique'}
+                </span>
+            </td>
+        `;
+        tody.appendChild(row);
     });
 
-    document.querySelectorAll(".btn-use-modal").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const group = e.target.getAttribute("data-group");
-            openUseModal(group);
-        });
+    // 2. Aggrégation par groupe sanguin pour l'affichage sous forme de Cartes
+    const aggregatedByGroup = data.reduce((acc, curr) => {
+        const group = curr.groupe_sanguin;
+        const count = parseInt(curr.quantite_disponible, 10) || 0;
+        
+        acc[group] = (acc[group] || 0) + count;
+        return acc;
+    }, {});
+
+    // 3. Génération des Cartes pour chaque groupe (A+, O-, etc.)
+    Object.entries(aggregatedByGroup).forEach(([group, totalPoches]) => {
+        const card = document.createElement("div");
+        card.className = "card-stock";
+        card.innerHTML = `
+            <h3>${group}</h3>
+            <p class="count">${totalPoches} poche(s)</p>
+            <small>Total disponible</small>
+        `;
+        cardsContainer.appendChild(card);
     });
 };
 
 // --- 3. GRAPHIQUE CHART.JS ---
-const renderStockChart = (stockItems) => {
-    const ctx = document.getElementById('stockChart').getContext('2d');
-    
-    if (chartInstance) {
-        chartInstance.destroy();
+const renderStockChart = (data) => {
+    const ctx = document.getElementById("stockChart");
+    if (!ctx) return;
+
+    // Extraction des groupes et des quantités depuis le payload d'origine
+    const labels = data.map(item => `${item.groupe_sanguin} (${item.composant})`);
+    const quantities = data.map(item => parseInt(item.quantite_disponible, 10) || 0);
+
+    // Destruction de l'ancien graphique s'il existe déjà
+    if (window.myStockChart) {
+        window.myStockChart.destroy();
     }
 
-    const labels = stockItems.map(i => i.blood_group);
-    const dataVolumes = stockItems.map(i => i.total_volume || 0);
-
-    chartInstance = new Chart(ctx, {
+    window.myStockChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Volume cumulé (mL)',
-                data: dataVolumes,
-                backgroundColor: 'rgba(225, 29, 72, 0.75)',
-                borderColor: 'rgba(225, 29, 72, 1)',
-                borderWidth: 1,
-                borderRadius: 4
+                label: 'Poches disponibles',
+                data: quantities,
+                backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                borderColor: 'rgba(220, 53, 69, 1)',
+                borderWidth: 1
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
+            scales: {
+                y: { beginAtZero: true }
+            }
         }
     });
 };
+// --- 4. STOCK DES HÔPITAUX AFFILIÉS PAR GROUPE SANGUIN ---
 
-// --- 4. CHARGEMENT DE L'HISTORIQUE ---
-const fetchRecentActivity = async (token) => {
+const GROUPES_SANGUINS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+
+const fetchAffiliatedHospitalsStock = async (token) => {
+    const thead = document.getElementById("affiliated-stock-thead");
+    const tbody = document.getElementById("recent-orders-tbody");
+    if (!tbody) return;
+
+    if (thead) {
+        thead.innerHTML = `
+            <tr>
+                <th>Hôpital</th>
+                ${GROUPES_SANGUINS.map(g => `<th style="text-align:center;">${g}</th>`).join('')}
+                <th>Total</th>
+            </tr>
+        `;
+    }
+
     try {
-        const response = await fetch('/api/stocks/historique', {
+        const response = await fetch('/api/hospitals/overview', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error("Erreur de récupération des hôpitaux affiliés");
 
-        const history = await response.json();
-        const tbody = document.getElementById("recent-orders-tbody");
-        if (!tbody) return;
+        const hopitaux = await response.json();
 
         tbody.innerHTML = "";
-        if (history.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Aucun mouvement récent.</td></tr>`;
+        if (hopitaux.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${GROUPES_SANGUINS.length + 2}" class="text-center">Aucun établissement affilié pour le moment.</td></tr>`;
             return;
         }
 
-        // Afficher les 5 derniers mouvements sur le Dashboard
-        history.slice(0, 5).forEach(mvt => {
+        hopitaux.forEach(h => {
+            const details = h.stock_details || {};
+            const cells = GROUPES_SANGUINS.map(g => {
+                const qte = details[g] || 0;
+                const couleur = qte === 0 ? '#dc2626' : qte <= 3 ? '#d97706' : '#16a34a';
+                return `<td style="text-align:center; color:${couleur}; font-weight:600;">${qte}</td>`;
+            }).join('');
+
             const tr = document.createElement("tr");
-            const isEntree = mvt.type_mouvement === 'ENTREE';
             tr.innerHTML = `
-                <td><strong>${mvt.groupe_sanguin}</strong></td>
-                <td>Hôpital / Banque Locale</td>
-                <td>${mvt.quantite || 1} poche(s)</td>
-                <td><span class="badge ${isEntree ? 'status-emise' : 'status-recue'}">${mvt.type_mouvement}</span></td>
-                <td>${new Date(mvt.date_mouvement).toLocaleDateString('fr-FR')}</td>
+                <td><strong>${h.nom}</strong><br><small style="color:#64748b;">${h.region || ''}</small></td>
+                ${cells}
+                <td><strong>${h.total_poches}</strong></td>
             `;
             tbody.appendChild(tr);
         });
     } catch (err) {
-        console.error("Erreur chargement mouvements récents :", err);
+        console.error("Erreur chargement stock des hôpitaux affiliés :", err);
+        tbody.innerHTML = `<tr><td colspan="${GROUPES_SANGUINS.length + 2}" class="text-center">Impossible de charger le stock des hôpitaux affiliés.</td></tr>`;
     }
 };
 
@@ -283,7 +364,7 @@ const setupStockEvents = (token) => {
                 motif: document.getElementById("use-reason").value
             };
 
-            const res = await fetch('/api/stocks/utiliser', {
+            const res = await fetch('/api/poches/utiliser', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(payload)

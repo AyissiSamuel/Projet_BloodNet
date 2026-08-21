@@ -72,8 +72,17 @@ exports.login = async (req, res) => {
     }
 
     try {
-        // Rechercher l'utilisateur par son email
-        const result = await db.query('SELECT * FROM core_identity.utilisateurs WHERE LOWER(email) = LOWER($1)', [email]);        
+        // Rechercher l'utilisateur par son email, avec le nom de son hôpital
+        // (nécessaire pour l'affichage dynamique côté frontend — auparavant
+        // absent de la réponse, ce qui laissait le nom "Hôpital Central de
+        // Yaoundé" codé en dur dans index.html s'afficher pour tout le monde).
+        const result = await db.query(
+            `SELECT u.*, h.nom AS nom_hopital
+             FROM core_identity.utilisateurs u
+             LEFT JOIN medical_logistics.hopitaux h ON u.id_hopital = h.id_hopital
+             WHERE LOWER(u.email) = LOWER($1)`,
+            [email]
+        );
         
         if (result.rows.length === 0) {
             return res.status(401).json({ message: "Identifiants invalides." });
@@ -85,6 +94,22 @@ exports.login = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.mot_de_passe);
         if (!isMatch) {
             return res.status(401).json({ message: "Identifiants invalides." });
+        }
+
+        // Bloque l'accès tant que le compte n'est pas ACTIF. Jusqu'ici,
+        // aucune vérification n'était faite : un compte encore EN_ATTENTE
+        // (hôpital pas encore validé par l'Admin) ou SUSPENDU (rejeté /
+        // désactivé) pouvait se connecter normalement, ce qui rendait les
+        // actions "Valider / Rejeter / Désactiver" de l'espace Admin sans
+        // effet réel sur l'accès à la plateforme.
+        if (user.role !== 'SUPER_ADMIN' && user.statut_compte !== 'ACTIF') {
+            const messages = {
+                EN_ATTENTE: "Votre établissement est en attente de validation par l'administration. Vous serez notifié dès l'activation de votre compte.",
+                SUSPENDU: "Votre compte a été suspendu. Contactez l'administration pour plus d'informations."
+            };
+            return res.status(403).json({
+                message: messages[user.statut_compte] || "Votre compte n'est pas actif."
+            });
         }
 
         // Création du jeton JWT
@@ -109,7 +134,8 @@ exports.login = async (req, res) => {
                 nom: user.nom,
                 email: user.email,
                 role: user.role,
-                id_hopital: user.id_hopital
+                id_hopital: user.id_hopital,
+                nom_hopital: user.nom_hopital || null
             }
         });
     } catch (error) {

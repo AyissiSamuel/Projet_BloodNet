@@ -5,17 +5,8 @@ const supervisionController = require('../controllers/supervisionController');
 const settingsController = require('../controllers/settingsController');
 const { verifyToken, isSuperAdmin } = require('../middlewares/authMiddleware');
 
-console.log('verifyToken:', typeof verifyToken);
-console.log('isSuperAdmin:', typeof isSuperAdmin);
-console.log('validateHopital:', typeof adminController.validateHopital);
-console.log('desactiverHopital:', typeof adminController.desactiverHopital);
-console.log('getHopitauxEnAttente:', typeof adminController.getHopitauxEnAttente);
-console.log('getPendingOrders:', typeof adminController.getPendingOrders);
-console.log('arbitrerCommande:', typeof adminController.arbitrerCommande);
-console.log('getSupervisionRegionale:', typeof supervisionController?.getSupervisionRegionale);
-console.log('getAdministrateurs:', typeof settingsController?.getAdministrateurs);
-
 router.patch('/hopitaux/:id/valider', verifyToken, isSuperAdmin, adminController.validateHopital);
+router.patch('/hopitaux/:id/rejeter', verifyToken, isSuperAdmin, adminController.rejeterHopital);
 router.patch('/hopitaux/:id/desactiver', verifyToken, isSuperAdmin, adminController.desactiverHopital);
 router.get('/hopitaux/en-attente', verifyToken, isSuperAdmin, adminController.getHopitauxEnAttente);
 router.get('/commandes/pending', verifyToken, isSuperAdmin, adminController.getPendingOrders);

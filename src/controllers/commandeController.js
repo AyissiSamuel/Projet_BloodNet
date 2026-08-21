@@ -1,19 +1,13 @@
 // src/controllers/commandeController.js
-//
-// Corrigé suite à l'audit du schéma réel (dump ma_base.backup). Les statuts,
-// noms de colonnes et types (UUID) suivent désormais strictement la
-// définition de medical_logistics.commandes :
-//   statut ∈ { EN_ATTENTE, ACCEPTEE, REFUSEE, EXPEDIEE, LIVREE, ANNULEE }
-//   groupe_sanguin ∈ { A, B, AB, O }  (rhesus séparé : '+' ou '-')
-//
-// Architecture retenue (Option B) : medical_logistics.commandes reste la
-// table métier (demande, validation Admin). drone_telemetry.commandes est
-// une table technique complémentaire, créée uniquement lorsque l'Admin
-// approuve une commande (statut → EXPEDIEE), pour assurer le suivi de
-// livraison simulé (position, batterie stockées directement en colonnes).
 
 const db = require('../../config/db');
 const socketConfig = require('../../config/socket');
+// CORRECTIF : ce require manquait totalement. getTelemetrieCommande (plus
+// bas) appelle droneService.getTelemetrieEtPersister / .demarrerMission,
+// mais sans cette ligne l'appel plantait systématiquement avec
+// "droneService is not defined" — c'est ce qui rendait toute la simulation
+// de livraison inopérante (le suivi du drone ne s'affichait jamais).
+const droneService = require('../services/droneSimulationService');
 
 // 1. PASSER UNE COMMANDE DIRECTE (Réservation atomique de poches)
 //
@@ -196,17 +190,12 @@ exports.getMyCommandes = async (req, res) => {
 };
 
 // 3. TÉLÉMÉTRIE DU DRONE POUR UNE COMMANDE EXPÉDIÉE (Option B)
-//
-// Contrairement à la première version (chantier 1), la position n'est plus
-// simulée en mémoire (Map JS, perdue au redémarrage) mais persistée dans
-// drone_telemetry.commandes, table technique liée à la commande métier via
-// id_commande_metier (cf. migration 004).
 exports.getTelemetrieCommande = async (req, res) => {
     const { id_commande } = req.params;
 
     try {
         const commandeResult = await db.query(
-            `SELECT id_commande, id_hopital_vendeur, id_hopital_demandeur, statut
+            `SELECT id_commande, id_hopital_vendeur, id_hopital_demandeur, statut 
              FROM medical_logistics.commandes WHERE id_commande = $1`,
             [id_commande]
         );
@@ -217,56 +206,38 @@ exports.getTelemetrieCommande = async (req, res) => {
 
         const commande = commandeResult.rows[0];
 
-        if (commande.statut !== 'EXPEDIEE') {
+        if (commande.statut !== 'EXPEDIEE' && commande.statut !== 'LIVREE') {
             return res.status(400).json({ message: "Cette commande n'est pas en cours de livraison." });
         }
 
-        // Cherche une ligne de tracking déjà initialisée pour cette commande
-        let telemetrieResult = await db.query(
-            `SELECT * FROM drone_telemetry.commandes WHERE id_commande_metier = $1`,
-            [id_commande]
-        );
+        // Tente de calculer et persister la télémétrie
+        let telemetrie = await droneService.getTelemetrieEtPersister(id_commande);
 
-        let telemetrie;
-        if (telemetrieResult.rows.length === 0) {
-            // Première consultation : initialise la mission de suivi simulée
-            telemetrie = await initialiserTelemetrie(commande);
-        } else {
-            telemetrie = await avancerTelemetrie(telemetrieResult.rows[0]);
+        // Si la mission vient de démarrer ou n'était pas en mémoire
+        if (!telemetrie && commande.statut === 'EXPEDIEE') {
+            await droneService.demarrerMission(
+                commande.id_commande, 
+                commande.id_hopital_vendeur, 
+                commande.id_hopital_demandeur
+            );
+            telemetrie = await droneService.getTelemetrieEtPersister(id_commande);
         }
 
-        // Si la progression simulée est terminée, on répercute sur la commande métier
-        if (telemetrie.statut_commande === 'LIVREE' && commande.statut !== 'LIVREE') {
+        // Si la livraison vient de se terminer, on met à jour la table métier
+        if (telemetrie && telemetrie.statut === 'LIVREE' && commande.statut !== 'LIVREE') {
             await db.query(
                 `UPDATE medical_logistics.commandes SET statut = 'LIVREE' WHERE id_commande = $1`,
                 [id_commande]
             );
-
-            try {
-                const io = socketConfig.getIO();
-                io.to(`hospital_${commande.id_hopital_demandeur}`).emit('livraison_terminee', {
-                    message: `Livraison #${id_commande} arrivée à destination.`,
-                    id_commande
-                });
-            } catch (wsErr) {
-                console.warn("Avertissement WebSocket :", wsErr.message);
-            }
         }
 
-        res.status(200).json({
-            drone_id: `DRONE-${String(telemetrie.id_commande).slice(0, 8).toUpperCase()}`,
-            lat: parseFloat(telemetrie.drone_latitude),
-            lng: parseFloat(telemetrie.drone_longitude),
-            battery: telemetrie.drone_batterie,
-            statut: telemetrie.statut_commande === 'LIVREE' ? 'LIVREE' : 'EN_VOL'
-        });
+        res.status(200).json(telemetrie);
 
     } catch (error) {
         console.error("Erreur télémétrie commande :", error);
-        res.status(500).json({ message: "Erreur lors de la récupération de la télémétrie." });
+        res.status(500).json({ message: error.message || "Erreur lors de la récupération de la télémétrie." });
     }
 };
-
 // Initialise le suivi de livraison : crée la ligne dans drone_telemetry.commandes
 // à la position de l'hôpital vendeur (départ de la mission simulée).
 async function initialiserTelemetrie(commande) {

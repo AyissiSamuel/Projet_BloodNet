@@ -13,7 +13,10 @@ const db = require('../../config/db');
 exports.validateHopital = async (req, res) => {
     const { id } = req.params;
 
+    const client = await db.connect();
     try {
+        await client.query('BEGIN');
+
         const queryText = `
             UPDATE medical_logistics.hopitaux 
             SET statut = 'ACTIF'
@@ -21,11 +24,27 @@ exports.validateHopital = async (req, res) => {
             RETURNING *;
         `;
 
-        const result = await db.query(queryText, [id]);
+        const result = await client.query(queryText, [id]);
 
         if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ message: "Hôpital introuvable." });
         }
+
+        // CORRECTIF : la validation ne mettait à jour que hopitaux.statut,
+        // jamais le statut_compte de l'admin référent (resté EN_ATTENTE
+        // depuis l'inscription). Or authController.login vérifie désormais
+        // statut_compte === 'ACTIF' avant d'autoriser la connexion — sans
+        // cette mise à jour, l'admin de l'hôpital restait bloqué au login
+        // même après validation par le SUPER_ADMIN.
+        await client.query(
+            `UPDATE core_identity.utilisateurs 
+             SET statut_compte = 'ACTIF' 
+             WHERE id_hopital = $1 AND role = 'ADMIN_HOPITAL' AND statut_compte = 'EN_ATTENTE';`,
+            [id]
+        );
+
+        await client.query('COMMIT');
 
         res.status(200).json({
             message: "L'hôpital a été validé avec succès !",
@@ -33,8 +52,62 @@ exports.validateHopital = async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error("Erreur Validation Hôpital :", error);
         res.status(500).json({ message: "Une erreur est survenue lors de la validation." });
+    } finally {
+        client.release();
+    }
+};
+
+// Rejeter une demande d'inscription en attente.
+//
+// AJOUT (audit) : seule l'action "Valider" existait côté admin, il n'y
+// avait aucun moyen de refuser une demande — l'hôpital restait
+// indéfiniment en file d'attente. On réutilise le statut DESACTIVE (déjà
+// autorisé par la contrainte chk_hopital_statut, pas de migration
+// nécessaire) : un hôpital rejeté n'apparaît plus dans les demandes en
+// attente, et son admin référent ne peut pas se connecter (statut_compte
+// suspendu) tant qu'il n'est pas éventuellement réactivé plus tard.
+exports.rejeterHopital = async (req, res) => {
+    const { id } = req.params;
+
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        const result = await client.query(
+            `UPDATE medical_logistics.hopitaux
+             SET statut = 'DESACTIVE'
+             WHERE id_hopital = $1 AND statut = 'EN_ATTENTE'
+             RETURNING *;`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: "Demande introuvable ou déjà traitée." });
+        }
+
+        await client.query(
+            `UPDATE core_identity.utilisateurs 
+             SET statut_compte = 'SUSPENDU' 
+             WHERE id_hopital = $1 AND role = 'ADMIN_HOPITAL';`,
+            [id]
+        );
+
+        await client.query('COMMIT');
+
+        res.status(200).json({
+            message: "La demande d'inscription a été rejetée.",
+            hopital: result.rows[0]
+        });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error("Erreur Rejet Hôpital :", error);
+        res.status(500).json({ message: "Une erreur est survenue lors du rejet." });
+    } finally {
+        client.release();
     }
 };
 
@@ -44,8 +117,11 @@ exports.validateHopital = async (req, res) => {
 exports.desactiverHopital = async (req, res) => {
     const { id } = req.params;
 
+    const client = await db.connect();
     try {
-        const result = await db.query(
+        await client.query('BEGIN');
+
+        const result = await client.query(
             `UPDATE medical_logistics.hopitaux
              SET statut = 'DESACTIVE'
              WHERE id_hopital = $1
@@ -54,16 +130,33 @@ exports.desactiverHopital = async (req, res) => {
         );
 
         if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ message: "Hôpital introuvable." });
         }
+
+        // CORRECTIF : désactiver un hôpital ne devrait pas laisser son
+        // personnel continuer à se connecter à la plateforme. On suspend
+        // désormais tous les comptes rattachés (pas seulement l'admin),
+        // cohérent avec l'intention métier d'une désactivation.
+        await client.query(
+            `UPDATE core_identity.utilisateurs 
+             SET statut_compte = 'SUSPENDU' 
+             WHERE id_hopital = $1 AND statut_compte = 'ACTIF';`,
+            [id]
+        );
+
+        await client.query('COMMIT');
 
         res.status(200).json({
             message: "L'hôpital a été désactivé.",
             hopital: result.rows[0]
         });
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error("Erreur Désactivation Hôpital :", error);
         res.status(500).json({ message: "Une erreur est survenue lors de la désactivation." });
+    } finally {
+        client.release();
     }
 };
 

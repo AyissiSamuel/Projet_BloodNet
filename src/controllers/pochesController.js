@@ -295,7 +295,7 @@ exports.getReseauHopitaux = async (req, res) => {
                     groupe_sanguin, 
                     COUNT(*)::TEXT AS qte
                 FROM medical_logistics.poches_sang
-                WHERE statut = 'DISPONIBLE'
+                WHERE statut = 'DISPONIBLE' AND date_peremption >= CURRENT_DATE
                 GROUP BY id_hopital, groupe_sanguin
             ),
             resume_hopitaux AS (
@@ -324,8 +324,13 @@ exports.getReseauHopitaux = async (req, res) => {
     }
 };
 // OBTENIR LES STATISTIQUES KPI DU DASHBOARD HOME
+
 exports.getDashboardKPIs = async (req, res) => {
     const id_hopital = req.user.id_hopital;
+
+    if (!id_hopital) {
+        return res.status(200).json({ total_stock: 0, critical_stock: 0, pending_orders: 0, active_donors: 0 });
+    }
 
     try {
         const queryText = `
@@ -336,7 +341,7 @@ exports.getDashboardKPIs = async (req, res) => {
                  WHERE id_hopital = $1 AND statut = 'DISPONIBLE' AND date_peremption > NOW()
                 ) AS total_stock,
 
-                -- 2. Poches à stock critique (ex: Groupes O- et A- ou périmant dans moins de 5 jours)
+                -- 2. Poches à stock critique (groupes rares en tension, ou péremption proche)
                 (SELECT COUNT(*) 
                  FROM medical_logistics.poches_sang 
                  WHERE id_hopital = $1 
@@ -345,17 +350,17 @@ exports.getDashboardKPIs = async (req, res) => {
                    AND (groupe_sanguin IN ('O-', 'A-') OR date_peremption <= NOW() + INTERVAL '5 days')
                 ) AS critical_stock,
 
-                -- 3. Commandes en cours / en attente de livraison
+                -- 3. Commandes en cours (émises ou reçues), en attente ou en cours de livraison
                 (SELECT COUNT(*) 
                  FROM medical_logistics.commandes 
-                 WHERE (id_hopital_demandeur = $1 OR id_hopital_fournisseur = $1)
-                   AND statut IN ('EN_ATTENTE', 'EN_TRANSIT')
+                 WHERE (id_hopital_demandeur = $1 OR id_hopital_vendeur = $1)
+                   AND statut IN ('EN_ATTENTE', 'EXPEDIEE')
                 ) AS pending_orders,
 
-                -- 4. Donneurs enregistrés ou ayant donné dans les 30 derniers jours
+                -- 4. Donneurs distincts ayant donné dans cet hôpital sur les 30 derniers jours
                 (SELECT COUNT(DISTINCT id_donneur) 
-                 FROM medical_logistics.donneufs_collectes 
-                 WHERE id_hopital = $1 AND date_don >= NOW() - INTERVAL '30 days'
+                 FROM medical_logistics.historique_dons 
+                 WHERE id_hopital_prelevement = $1 AND date_don >= NOW() - INTERVAL '30 days'
                 ) AS active_donors;
         `;
 

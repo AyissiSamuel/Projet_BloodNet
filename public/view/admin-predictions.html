@@ -1,0 +1,74 @@
+<div class="page-container">
+    <div class="page-header">
+        <div>
+            <h2>Prédictions Réseau & Suggestions de Transfert</h2>
+            <p class="subtitle">Vue consolidée des risques de rupture et de péremption, par établissement</p>
+        </div>
+        <div style="background: #eef2ff; color: #4338ca; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; border: 1px solid #c7d2fe;">
+            <i class="fa-solid fa-chart-line"></i> Seuils : rupture sous <span id="admin-seuil-rupture">5</span> j · péremption sous <span id="admin-seuil-peremption">7</span> j
+        </div>
+    </div>
+
+    <div class="table-header" style="margin-top: 1.5rem;">
+        <h3><i class="fa-solid fa-map-location-dot"></i> Filtrer par région</h3>
+        <select id="admin-prediction-region-filter" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <option value="TOUTES">Toutes les régions</option>
+        </select>
+    </div>
+
+    <!-- SUGGESTIONS DE TRANSFERT ENTRE HÔPITAUX -->
+    <div class="card-box" style="margin-top: 1rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-truck-fast"></i> Suggestions de transfert</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Groupe</th>
+                        <th>Hôpital source (surplus à risque)</th>
+                        <th>Hôpital cible (rupture imminente)</th>
+                        <th>Poches transférables</th>
+                        <th>Urgence</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-transfer-suggestions-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- DÉTAIL PAR HÔPITAL -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-hospital"></i> Détail par établissement</h3>
+        </div>
+        <div id="admin-prediction-hospitals-grid" class="stat-cards-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+            <!-- Rempli en JS : une carte par hôpital, avec ses groupes à risque -->
+        </div>
+    </div>
+
+    <!-- ALERTES RÉSEAU -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-bell"></i> Alertes Réseau</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Hôpital</th>
+                        <th>Groupe</th>
+                        <th>Message</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-alertes-table-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

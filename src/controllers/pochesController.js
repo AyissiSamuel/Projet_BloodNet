@@ -237,6 +237,33 @@ exports.utiliserPocheParGroupe = async (req, res) => {
     }
 };
 
+// 5bis. TRAÇABILITÉ DES POCHES DÉSTOCKÉES
+//
+// AJOUT (audit) : utiliserPocheParGroupe (ci-dessus) sait déjà précisément
+// QUELLES poches ont été marquées UTILISE (elles sont renvoyées dans
+// poches_utilisees), mais rien ne permettait ensuite de consulter cette
+// liste — l'information était perdue dès la fermeture du toast de
+// confirmation. Cet endpoint liste, pour l'hôpital connecté, toutes les
+// poches actuellement au statut UTILISE, avec leur référence complète.
+exports.getPochesUtilisees = async (req, res) => {
+    const id_hopital = req.user.id_hopital;
+
+    try {
+        const result = await db.query(
+            `SELECT id_poche, groupe_sanguin, composant, volume_ml, date_collecte, date_peremption
+             FROM medical_logistics.poches_sang
+             WHERE id_hopital = $1 AND statut = 'UTILISE'
+             ORDER BY date_peremption DESC
+             LIMIT 200;`,
+            [id_hopital]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error("Erreur récupération poches utilisées :", error);
+        res.status(500).json({ message: "Erreur lors du chargement des poches déstockées." });
+    }
+};
+
 // 6. HISTORIQUE DES MOUVEMENTS DE STOCK (entrées et sorties)
 exports.getHistoriqueStock = async (req, res) => {
     const id_hopital = req.user.id_hopital;

@@ -75,6 +75,35 @@
             </table>
         </div>
     </div>
+
+    <!-- SECTION : TRAÇABILITÉ DES POCHES DÉSTOCKÉES -->
+    <!-- AJOUT (audit) : jusqu'ici, une fois une poche déstockée, il n'était
+         plus possible de savoir DE QUELLE poche précise il s'agissait —
+         seul un total agrégé apparaissait dans l'historique des mouvements
+         ci-dessus. Cette section liste individuellement chaque poche au
+         statut UTILISE, avec sa référence complète. -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3><i class="fa-solid fa-magnifying-glass"></i> Traçabilité des Poches Déstockées</h3>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Référence Poche</th>
+                        <th>Groupe</th>
+                        <th>Composant</th>
+                        <th>Volume</th>
+                        <th>Date de collecte</th>
+                        <th>Péremption prévue</th>
+                    </tr>
+                </thead>
+                <tbody id="used-pockets-table-body">
+                    <!-- Rempli en JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <!-- MODALE D'AJOUT DE POCHE -->

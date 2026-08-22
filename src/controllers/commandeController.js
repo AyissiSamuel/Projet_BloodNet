@@ -124,6 +124,14 @@ exports.passerCommande = async (req, res) => {
                     message: `Nouvelle commande directe reçue de : ${nouvelleCommande.nom_hopital_demandeur}`,
                     commande: nouvelleCommande
                 });
+                // AJOUT (audit) : l'administrateur (qui arbitre chaque
+                // commande, cf. adminController.arbitrerCommande) n'était
+                // jusqu'ici notifié d'aucune nouvelle demande — il ne le
+                // découvrait qu'en rafraîchissant manuellement sa page.
+                io.to('admin_room').emit('nouvelle_commande_admin', {
+                    message: `Nouvelle commande à arbitrer : ${nouvelleCommande.nom_hopital_demandeur} → fournisseur sélectionné`,
+                    commande: nouvelleCommande
+                });
             }
         } catch (wsErr) {
             console.warn("Avertissement WebSocket :", wsErr.message);

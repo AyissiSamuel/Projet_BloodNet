@@ -128,11 +128,23 @@ const getStatusClass = (status) => {
 };
 
 // --- 4. SUIVI DU DRONE EN TEMPS RÉEL (LEAFLET) ---
+let baseMarker = null;
+let vendeurMarker = null;
+let demandeurMarker = null;
+let routeLine = null;
+
 const openDroneTrackingModal = (orderId, token) => {
     document.getElementById("tracking-order-id").textContent = `#${orderId}`;
     document.getElementById("telemetry-drone-id").textContent = "Connexion...";
     const modal = document.getElementById("modal-drone-tracking");
     modal.style.display = "flex";
+
+    // Réinitialisation des marqueurs fixes à chaque nouvelle ouverture
+    // (sinon les repères d'une commande précédente restent affichés).
+    [baseMarker, vendeurMarker, demandeurMarker, droneMarker, routeLine].forEach(layer => {
+        if (layer && trackingMap) trackingMap.removeLayer(layer);
+    });
+    baseMarker = vendeurMarker = demandeurMarker = droneMarker = routeLine = null;
 
     setTimeout(() => {
         if (!trackingMap) {
@@ -149,6 +161,23 @@ const openDroneTrackingModal = (orderId, token) => {
     }, 200);
 };
 
+// Icônes distinctes pour repérer d'un coup d'œil la base et les deux hôpitaux
+const iconeBase = L.divIcon({
+    className: '',
+    html: `<div style="background:#4338ca; width:16px; height:16px; border-radius:4px; border:2px solid white; box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [16, 16]
+});
+const iconeVendeur = L.divIcon({
+    className: '',
+    html: `<div style="background:#16a34a; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [14, 14]
+});
+const iconeDemandeur = L.divIcon({
+    className: '',
+    html: `<div style="background:#dc2626; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>`,
+    iconSize: [14, 14]
+});
+
 const startTelemetryPolling = (orderId, token) => {
     clearInterval(telemetryInterval);
 
@@ -158,27 +187,68 @@ const startTelemetryPolling = (orderId, token) => {
             const res = await fetch(`/api/commandes/telemetrie/${orderId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-    
+
             if (!res.ok) return;
-    
-            const data = await res.json(); 
-    
-            document.getElementById("telemetry-drone-id").textContent = data.drone_id || `#${orderId}`;
+
+            const data = await res.json();
+
+            // La mission est totalement terminée (drone déjà rentré à la
+            // base) : le backend renvoie alors null plutôt qu'un objet de
+            // télémétrie. On arrête le polling proprement.
+            if (!data) {
+                document.getElementById("telemetry-drone-id").textContent = "Mission terminée";
+                clearInterval(telemetryInterval);
+                return;
+            }
+
+            document.getElementById("telemetry-drone-id").textContent =
+                `${data.drone_id || `#${orderId}`} — ${data.phase_libelle || ''}`;
             document.getElementById("telemetry-battery").textContent = `${data.battery || 0}%`;
-    
+
+            // Pose les repères fixes (base, hôpital vendeur, hôpital
+            // demandeur) une seule fois, dès qu'on connaît leurs positions —
+            // renvoyées directement par le backend pour éviter un appel API
+            // supplémentaire.
+            if (!baseMarker && data.base) {
+                baseMarker = L.marker([data.base.lat, data.base.lng], { icon: iconeBase })
+                    .addTo(trackingMap)
+                    .bindPopup(`<strong>${data.base.nom}</strong><br><small>Base logistique</small>`);
+            }
+            if (!vendeurMarker && data.point_vendeur) {
+                vendeurMarker = L.marker([data.point_vendeur.lat, data.point_vendeur.lng], { icon: iconeVendeur })
+                    .addTo(trackingMap)
+                    .bindPopup(`<strong>${data.point_vendeur.nom}</strong><br><small>Départ (hôpital fournisseur)</small>`);
+            }
+            if (!demandeurMarker && data.point_demandeur) {
+                demandeurMarker = L.marker([data.point_demandeur.lat, data.point_demandeur.lng], { icon: iconeDemandeur })
+                    .addTo(trackingMap)
+                    .bindPopup(`<strong>${data.point_demandeur.nom}</strong><br><small>Arrivée (hôpital demandeur)</small>`);
+            }
+            if (!routeLine && data.base && data.point_vendeur && data.point_demandeur) {
+                routeLine = L.polyline([
+                    [data.base.lat, data.base.lng],
+                    [data.point_vendeur.lat, data.point_vendeur.lng],
+                    [data.point_demandeur.lat, data.point_demandeur.lng],
+                    [data.base.lat, data.base.lng]
+                ], { color: '#94a3b8', weight: 2, dashArray: '6,8', opacity: 0.6 }).addTo(trackingMap);
+
+                trackingMap.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+            }
+
             const pos = [data.lat || 3.8480, data.lng || 11.5021];
-    
+
             if (!droneMarker) {
-                droneMarker = L.marker(pos).addTo(trackingMap).bindPopup(`<b>Drone ${data.drone_id || ''}</b><br>En livraison`).openPopup();
+                droneMarker = L.marker(pos).addTo(trackingMap).bindPopup(`<b>Drone ${data.drone_id || ''}</b><br>${data.phase_libelle || ''}`).openPopup();
             } else {
                 droneMarker.setLatLng(pos);
+                droneMarker.getPopup()?.setContent(`<b>Drone ${data.drone_id || ''}</b><br>${data.phase_libelle || ''}`);
             }
             trackingMap.panTo(pos);
-    
-            if (data.statut === 'LIVREE') {
+
+            if (data.phase === 'AU_SOL') {
                 clearInterval(telemetryInterval);
             }
-    
+
         } catch (err) {
             console.error("Erreur télémétrie:", err);
         }

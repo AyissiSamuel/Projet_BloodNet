@@ -18,4 +18,7 @@ router.get('/recherche-urgente', verifyToken, pochesController.searchUrgentBlood
 // Route pour marquer une poche comme utilisée (déstockage)
 router.patch('/utiliser', verifyToken, pochesController.utiliserPocheParGroupe);
 
+// Route pour consulter la traçabilité des poches déjà déstockées
+router.get('/utilisees', verifyToken, pochesController.getPochesUtilisees);
+
 module.exports = router;

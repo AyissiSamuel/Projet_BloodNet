@@ -36,6 +36,7 @@ export const initStockModule = async (token, isDashboardHome = false) => {
         setupStockEvents(token);
         setupFilterEvents(token);
         await fetchStockData(token);
+        await fetchUsedPockets(token);
     }
 };
 
@@ -174,7 +175,7 @@ const renderStockTableAndCards = (data) => {
                 </span>
             </td>
         `;
-        tody.appendChild(row);
+        tbody.appendChild(row);
     });
 
     // 2. Aggrégation par groupe sanguin pour l'affichage sous forme de Cartes
@@ -370,14 +371,64 @@ const setupStockEvents = (token) => {
                 body: JSON.stringify(payload)
             });
 
+            const data = await res.json().catch(() => ({}));
+
             if (res.ok) {
-                showToast("Déstockage effectué avec succès", "success");
+                // AJOUT (audit) : le backend renvoie déjà les références
+                // exactes des poches déstockées (poches_utilisees) — elles
+                // étaient jusqu'ici ignorées côté frontend, rendant
+                // impossible de savoir QUELLE poche avait été sortie.
+                const refs = (data.poches_utilisees || [])
+                    .map(id => `#${id.toString().slice(0, 8)}`)
+                    .join(', ');
+                showToast(
+                    refs ? `Déstockage effectué : poche(s) ${refs}` : "Déstockage effectué avec succès",
+                    "success"
+                );
                 if (modalUse) modalUse.style.display = "none";
                 formUse.reset();
                 fetchStockData(token);
+                fetchUsedPockets(token);
             } else {
-                showToast("Erreur lors du déstockage", "error");
+                showToast(data.message || "Erreur lors du déstockage", "error");
             }
         });
+    }
+};
+
+// --- 5. TRAÇABILITÉ DES POCHES DÉSTOCKÉES ---
+export const fetchUsedPockets = async (token) => {
+    const tbody = document.getElementById("used-pockets-table-body");
+    if (!tbody) return;
+
+    try {
+        const response = await fetch('/api/poches/utilisees', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error("Erreur de récupération");
+
+        const poches = await response.json();
+
+        tbody.innerHTML = "";
+        if (poches.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Aucune poche déstockée pour le moment.</td></tr>`;
+            return;
+        }
+
+        poches.forEach(p => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><code>#${p.id_poche.toString().slice(0, 8)}</code></td>
+                <td><strong>${p.groupe_sanguin}</strong></td>
+                <td>${p.composant}</td>
+                <td>${p.volume_ml} ml</td>
+                <td>${new Date(p.date_collecte).toLocaleDateString('fr-FR')}</td>
+                <td>${new Date(p.date_peremption).toLocaleDateString('fr-FR')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error("Erreur chargement poches déstockées :", err);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#dc2626;">Impossible de charger la traçabilité des poches.</td></tr>`;
     }
 };

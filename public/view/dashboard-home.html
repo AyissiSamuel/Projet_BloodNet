@@ -1,95 +1,157 @@
-<!-- STATISTIQUES RAPIDES (KPIs) -->
-<section class="kpi-grid">
-    <div class="kpi-card">
-        <div class="kpi-icon blue">
-            <i class="fa-solid fa-droplet"></i>
-        </div>
-        <div class="kpi-info">
-            <span class="kpi-title">Poches en Stock</span>
-            <h3 class="kpi-value" id="kpi-total-stock">--</h3>
-            <span class="kpi-status status-ok"><i class="fa-solid fa-circle-check"></i> Dispo en réserve</span>
-        </div>
-    </div>
-
-    <div class="kpi-card">
-        <div class="kpi-icon orange">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-        </div>
-        <div class="kpi-info">
-            <span class="kpi-title">Stock Critique</span>
-            <h3 class="kpi-value" id="kpi-critical-stock">--</h3>
-            <span class="kpi-status status-alert"><i class="fa-solid fa-triangle-exclamation"></i> Urgence ou &lt; 5j</span>
-        </div>
-    </div>
-
-    <div class="kpi-card">
-        <div class="kpi-icon blue">
-            <i class="fa-solid fa-truck-medical"></i>
-        </div>
-        <div class="kpi-info">
-            <span class="kpi-title">Commandes en Cours</span>
-            <h3 class="kpi-value" id="kpi-pending-orders">--</h3>
-            <span class="kpi-status"><i class="fa-solid fa-clock"></i> En transit / attente</span>
-        </div>
-    </div>
-
-    <div class="kpi-card">
-        <div class="kpi-icon green">
-            <i class="fa-solid fa-user-plus"></i>
-        </div>
-        <div class="kpi-info">
-            <span class="kpi-title">Donneurs Actifs</span>
-            <h3 class="kpi-value" id="kpi-active-donors">--</h3>
-            <span class="kpi-status status-ok"><i class="fa-solid fa-calendar-days"></i> Ce dernier mois</span>
-        </div>
-    </div>
-</section>
-
-<!-- SECTION PRINCIPALE : GRAPHIQUE STOCK & CARTE MAP -->
-<section class="dashboard-main-grid">
-    <!-- Graphique du Stock de Sang par Groupe -->
-    <div class="card chart-card">
-        <div class="card-header">
-            <h2><i class="fa-solid fa-chart-bar"></i> État du Stock par Groupe Sanguin</h2>
-            <button class="btn-sm btn-outline" id="refresh-stock-btn">
-                <i class="fa-solid fa-rotate-right"></i> Actualiser
+<!-- BANDEAU SOS URGENCE RÉSEAU -->
+<!-- AJOUT (audit) : le backend (sosController.js) gérait déjà la création
+     et la diffusion temps réel des appels SOS, mais aucune interface ne
+     permettait de LANCER un SOS ni de VOIR les appels actifs des autres
+     hôpitaux — la fonctionnalité était invisible côté frontend. -->
+     <section class="card" id="sos-panel" style="margin-bottom:1.5rem; border-left:4px solid #dc2626;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="color:#dc2626;"><i class="fa-solid fa-triangle-exclamation"></i> Appels SOS — Réseau</h2>
+            <button class="btn-primary" id="btn-open-sos-modal" style="background:#dc2626;">
+                <i class="fa-solid fa-bullhorn"></i> Lancer un SOS
             </button>
         </div>
         <div class="card-body">
-            <canvas id="stockChart" height="250"></canvas>
+            <div id="sos-active-list" style="display:flex; flex-direction:column; gap:8px;">
+                <p style="color:#94a3b8; font-size:0.85rem;">Chargement des alertes actives...</p>
+            </div>
+        </div>
+    </section>
+    
+    <!-- MODALE DE LANCEMENT SOS -->
+    <div class="modal-overlay" id="modal-sos" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i> Lancer un appel SOS</h3>
+                <button class="close-btn" id="close-sos-modal">&times;</button>
+            </div>
+            <form id="form-sos">
+                <div class="form-group">
+                    <label for="sos-groupe">Groupe sanguin recherché</label>
+                    <select id="sos-groupe" required>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="AB">AB</option>
+                        <option value="O">O</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sos-rhesus">Rhésus</label>
+                    <select id="sos-rhesus" required>
+                        <option value="+">Positif (+)</option>
+                        <option value="-">Négatif (-)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sos-quantite">Quantité nécessaire (poches)</label>
+                    <input type="number" id="sos-quantite" min="1" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="sos-description">Message (optionnel)</label>
+                    <textarea id="sos-description" rows="2" placeholder="Ex: Urgence chirurgicale, besoin immédiat"></textarea>
+                </div>
+                <p class="info-note" style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+                    <i class="fa-solid fa-circle-info"></i> Ce SOS sera diffusé instantanément à tous les hôpitaux affiliés et à l'administration.
+                </p>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancel-sos-modal">Annuler</button>
+                    <button type="submit" class="btn-primary" style="background:#dc2626;">Diffuser le SOS</button>
+                </div>
+            </form>
         </div>
     </div>
-
-    <!-- Carte Interactive des Banques Interconnectées -->
-    <div class="card map-card">
+    
+    <!-- STATISTIQUES RAPIDES (KPIs) -->
+    <section class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon blue">
+                <i class="fa-solid fa-droplet"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-title">Poches en Stock</span>
+                <h3 class="kpi-value" id="kpi-total-stock">--</h3>
+                <span class="kpi-status status-ok"><i class="fa-solid fa-circle-check"></i> Dispo en réserve</span>
+            </div>
+        </div>
+    
+        <div class="kpi-card">
+            <div class="kpi-icon orange">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-title">Stock Critique</span>
+                <h3 class="kpi-value" id="kpi-critical-stock">--</h3>
+                <span class="kpi-status status-alert"><i class="fa-solid fa-triangle-exclamation"></i> Urgence ou &lt; 5j</span>
+            </div>
+        </div>
+    
+        <div class="kpi-card">
+            <div class="kpi-icon blue">
+                <i class="fa-solid fa-truck-medical"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-title">Commandes en Cours</span>
+                <h3 class="kpi-value" id="kpi-pending-orders">--</h3>
+                <span class="kpi-status"><i class="fa-solid fa-clock"></i> En transit / attente</span>
+            </div>
+        </div>
+    
+        <div class="kpi-card">
+            <div class="kpi-icon green">
+                <i class="fa-solid fa-user-plus"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-title">Donneurs Actifs</span>
+                <h3 class="kpi-value" id="kpi-active-donors">--</h3>
+                <span class="kpi-status status-ok"><i class="fa-solid fa-calendar-days"></i> Ce dernier mois</span>
+            </div>
+        </div>
+    </section>
+    
+    <!-- SECTION PRINCIPALE : GRAPHIQUE STOCK & CARTE MAP -->
+    <section class="dashboard-main-grid">
+        <!-- Graphique du Stock de Sang par Groupe -->
+        <div class="card chart-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-chart-bar"></i> État du Stock par Groupe Sanguin</h2>
+                <button class="btn-sm btn-outline" id="refresh-stock-btn">
+                    <i class="fa-solid fa-rotate-right"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <canvas id="stockChart" height="250"></canvas>
+            </div>
+        </div>
+    
+        <!-- Carte Interactive des Banques Interconnectées -->
+        <div class="card map-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-map-location-dot"></i> Réseau & Banques Proches</h2>
+            </div>
+            <div class="card-body map-container">
+                <div id="map" style="height: 250px; width: 100%; border-radius: 8px;"></div>
+            </div>
+        </div>
+    </section>
+    
+    
+    <!-- STOCK DES HÔPITAUX AFFILIÉS PAR GROUPE SANGUIN -->
+    <section class="card recent-activity-card">
         <div class="card-header">
-            <h2><i class="fa-solid fa-map-location-dot"></i> Réseau & Banques Proches</h2>
+            <h2><i class="fa-solid fa-hospital"></i> Stock des Hôpitaux Affiliés</h2>
         </div>
-        <div class="card-body map-container">
-            <div id="map" style="height: 250px; width: 100%; border-radius: 8px;"></div>
+        <div class="card-body">
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead id="affiliated-stock-thead">
+                        <!-- Injecté dynamiquement (colonnes = groupes sanguins) -->
+                    </thead>
+                    <tbody id="recent-orders-tbody">
+                        <!-- Injecté dynamiquement par fetchAffiliatedHospitalsStock (stock.js) -->
+                        <tr>
+                            <td colspan="10" class="text-center">Chargement des données...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-</section>
-
-
-<!-- STOCK DES HÔPITAUX AFFILIÉS PAR GROUPE SANGUIN -->
-<section class="card recent-activity-card">
-    <div class="card-header">
-        <h2><i class="fa-solid fa-hospital"></i> Stock des Hôpitaux Affiliés</h2>
-    </div>
-    <div class="card-body">
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead id="affiliated-stock-thead">
-                    <!-- Injecté dynamiquement (colonnes = groupes sanguins) -->
-                </thead>
-                <tbody id="recent-orders-tbody">
-                    <!-- Injecté dynamiquement par fetchAffiliatedHospitalsStock (stock.js) -->
-                    <tr>
-                        <td colspan="10" class="text-center">Chargement des données...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</section>
+    </section>

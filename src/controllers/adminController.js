@@ -9,6 +9,7 @@
 // hopitaux.statut suit chk_hopital_statut : EN_ATTENTE, ACTIF, DESACTIVE.
 
 const db = require('../../config/db');
+const socketConfig = require('../../config/socket');
 
 exports.validateHopital = async (req, res) => {
     const { id } = req.params;
@@ -247,6 +248,19 @@ exports.arbitrerCommande = async (req, res) => {
     try {
         await client.query('BEGIN');
 
+        // Récupéré avant modification pour pouvoir notifier les deux
+        // hôpitaux concernés une fois la transaction validée.
+        const commandeInfo = await client.query(
+            `SELECT c.id_hopital_demandeur, c.id_hopital_vendeur, c.groupe_sanguin, c.rhesus, c.quantite,
+                    h_dem.nom AS nom_demandeur, h_vend.nom AS nom_vendeur
+             FROM medical_logistics.commandes c
+             JOIN medical_logistics.hopitaux h_dem ON c.id_hopital_demandeur = h_dem.id_hopital
+             JOIN medical_logistics.hopitaux h_vend ON c.id_hopital_vendeur = h_vend.id_hopital
+             WHERE c.id_commande = $1`,
+            [id_commande]
+        );
+        const infosCommande = commandeInfo.rows[0];
+
         if (statutNormalise === 'REFUSEE') {
             await client.query(`
                 UPDATE medical_logistics.commandes 
@@ -277,6 +291,31 @@ exports.arbitrerCommande = async (req, res) => {
         }
 
         await client.query('COMMIT');
+
+        // AJOUT (audit) : jusqu'ici, ni l'hôpital demandeur ni l'hôpital
+        // vendeur n'étaient notifiés de la décision de l'admin — ils ne le
+        // découvraient qu'en rafraîchissant manuellement l'onglet Commandes.
+        if (infosCommande) {
+            try {
+                const io = socketConfig.getIO();
+                const libelle = statutNormalise === 'ACCEPTEE' ? 'acceptée et expédiée' : 'refusée';
+                const messageCommun = `Votre commande de ${infosCommande.quantite} poche(s) ${infosCommande.groupe_sanguin}${infosCommande.rhesus} (${infosCommande.nom_demandeur} ↔ ${infosCommande.nom_vendeur}) a été ${libelle} par l'administration.`;
+
+                io.to(`hospital_${infosCommande.id_hopital_demandeur}`).emit('commande_arbitree', {
+                    message: messageCommun,
+                    id_commande,
+                    statut: statutNormalise
+                });
+                io.to(`hospital_${infosCommande.id_hopital_vendeur}`).emit('commande_arbitree', {
+                    message: messageCommun,
+                    id_commande,
+                    statut: statutNormalise
+                });
+            } catch (wsErr) {
+                console.warn("Avertissement WebSocket (arbitrage) :", wsErr.message);
+            }
+        }
+
         res.status(200).json({ message: `Commande mise à jour : ${statutNormalise}` });
 
     } catch (error) {

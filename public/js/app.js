@@ -5,9 +5,16 @@ import { initOrdersModule } from './modules/orders.js';
 import { initDonorsModule } from './modules/donors.js';
 import { initSettingsModule } from './modules/settings.js';
 import { initPredictionsModule } from './modules/predictions.js';
+import { initNotifications } from './modules/notifications.js';
+import { initSosModule } from './modules/sos.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const token = checkAuth();
+
+    // Branche les notifications temps réel (nouvelle commande, arbitrage,
+    // SOS réseau) — une seule fois au chargement, pas à chaque changement
+    // de vue.
+    initNotifications(token, 'HOPITAL');
 
     // Dynamisation du profil utilisateur et de la structure hôpital
     try {
@@ -80,6 +87,7 @@ async function loadView(viewName, token) {
         switch (viewName) {
             case 'dashboard-home':
                 initStockModule(token, true); // KPIs du tableau de bord
+                initSosModule(token);
                 break;
 
             case 'stock':

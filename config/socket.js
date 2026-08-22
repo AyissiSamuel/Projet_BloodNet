@@ -48,6 +48,16 @@ module.exports = {
                 console.log(`🏥 Hôpital connecté à son espace sécurisé : ${privateRoom}`);
             }
 
+            // AJOUT (audit) : les administrateurs (SUPER_ADMIN) rejoignent
+            // désormais un canal dédié, pour être notifiés en temps réel de
+            // toute nouvelle commande nécessitant leur arbitrage — jusqu'ici
+            // aucun canal n'existait pour eux, seuls les hôpitaux étaient
+            // notifiés.
+            if (socket.user.role === 'SUPER_ADMIN') {
+                socket.join('admin_room');
+                console.log(`🛡️ Administrateur connecté à son espace de supervision.`);
+            }
+
             // 2. Rejoindre automatiquement le canal global des SOS
             socket.join('sos_global_room');
 

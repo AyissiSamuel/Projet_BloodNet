@@ -14,9 +14,12 @@ import { initAdminZonesModule } from './modules/admin-zones.js';
 import { initAdminSettingsModule } from './modules/admin-settings.js';
 import { initAdminCarteModule } from './modules/admin-carte.js';
 import { initAdminPredictionsModule } from './modules/admin-predictions.js';
+import { initNotifications } from './modules/notifications.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const token = checkAuth('SUPER_ADMIN');
+
+    initNotifications(token, 'SUPER_ADMIN');
 
     const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
     navItems.forEach(item => {

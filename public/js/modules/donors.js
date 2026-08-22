@@ -39,6 +39,28 @@ const renderDonorsTable = (donors) => {
         const isAnon = donor.est_anonyme;
         const nameDisplay = isAnon ? `<em style="color:#64748b;">Donneur Anonyme</em>` : `<strong>${donor.nom_complet}</strong>`;
 
+        // AJOUT (audit) : calcul d'éligibilité au rappel — un donneur de
+        // sang total doit respecter un délai minimal (~90 jours) avant de
+        // pouvoir redonner. Permet de cibler qui contacter en priorité.
+        const joursDepuisDernierDon = donor.dernier_don
+            ? Math.floor((Date.now() - new Date(donor.dernier_don).getTime()) / 86400000)
+            : null;
+        const estEligible = joursDepuisDernierDon === null || joursDepuisDernierDon >= 90;
+
+        const badgeEligibilite = estEligible
+            ? `<span class="badge" style="background:#dcfce7; color:#16a34a;">Éligible</span>`
+            : `<span class="badge" style="background:#fef3c7; color:#b45309;">Dans ${90 - joursDepuisDernierDon} j</span>`;
+
+        // Bouton "Contacter" : n'apparaît que si on a un numéro (pas
+        // anonyme) — ouvre l'application SMS du téléphone avec un message
+        // pré-rempli invitant au rappel. Voir explication complète (SMS
+        // groupés / Firebase) dans le rapport d'audit fourni séparément.
+        const boutonContact = (!isAnon && donor.telephone)
+            ? `<button class="btn-sm btn-secondary btn-contact-donor" data-tel="${donor.telephone}" data-nom="${donor.nom_complet}" title="Contacter par SMS">
+                   <i class="fa-solid fa-comment-sms"></i>
+               </button>`
+            : '';
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td><code>${donor.code_donneur}</code></td>
@@ -47,13 +69,30 @@ const renderDonorsTable = (donors) => {
             <td>${isAnon ? 'N/A' : (donor.telephone || 'Non renseigné')}</td>
             <td>${donor.total_dons || 1} don(s)</td>
             <td>${donor.dernier_don ? new Date(donor.dernier_don).toLocaleDateString('fr-FR') : '-'}</td>
-            <td>
+            <td>${badgeEligibilite}</td>
+            <td style="white-space:nowrap;">
                 <button class="btn-sm btn-secondary btn-new-donation" data-id="${donor.id_donneur}" data-group="${donor.groupe_sanguin}">
-                    <i class="fa-solid fa-plus"></i> Nouveau Don
+                    <i class="fa-solid fa-plus"></i> Don
                 </button>
+                ${boutonContact}
             </td>
         `;
         tbody.appendChild(tr);
+    });
+
+    // "Contacter" : ouvre l'app SMS native du poste avec un message
+    // pré-rempli. Simple, fonctionne sans aucune configuration ni service
+    // tiers — pertinent pour un projet académique. Pour un envoi groupé
+    // automatisé en production, voir le rapport d'audit (comparatif
+    // Firebase Cloud Messaging / passerelle SMS).
+    document.querySelectorAll(".btn-contact-donor").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const { tel, nom } = e.currentTarget.dataset;
+            const message = encodeURIComponent(
+                `Bonjour ${nom}, votre dernier don de sang remonte à un moment déjà — seriez-vous disponible pour un nouveau don prochainement ? Merci de votre engagement. — BloodNet`
+            );
+            window.open(`sms:${tel}?body=${message}`, '_blank');
+        });
     });
 
     // Écouteur pour "Nouveau Don" sur un donneur déjà enregistré : pré-remplit

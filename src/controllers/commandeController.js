@@ -246,6 +246,99 @@ exports.getTelemetrieCommande = async (req, res) => {
         res.status(500).json({ message: error.message || "Erreur lors de la récupération de la télémétrie." });
     }
 };
+
+// AJOUT : points de contrôle humains sur la simulation de livraison.
+//
+// Jusqu'ici, le drone enchaînait ses 3 tronçons (base → fournisseur →
+// demandeur → base) de façon entièrement automatique, sans qu'aucun hôpital
+// n'intervienne. Ces deux endpoints introduisent une confirmation manuelle
+// à deux moments clés :
+//   - à l'arrivée chez le FOURNISSEUR : celui-ci confirme avoir attaché le
+//     colis sur le drone avant que celui-ci ne reparte ;
+//   - à l'arrivée chez le DEMANDEUR : celui-ci confirme avoir réceptionné
+//     le colis avant que le drone n'entame son retour à la base.
+// Sans confirmation, le drone reste immobile sur place (cf.
+// droneSimulationService.getTelemetrieEtPersister, qui gèle la mission).
+
+exports.confirmerChargement = async (req, res) => {
+    const { id_commande } = req.params;
+    const id_hopital = req.user.id_hopital;
+
+    if (!id_hopital) {
+        return res.status(403).json({ message: "Seul un compte hospitalier peut confirmer un chargement." });
+    }
+
+    try {
+        droneService.confirmerEtape(id_commande, id_hopital, 'CHARGEMENT');
+
+        // Notifie l'hôpital demandeur et l'administration que le drone a
+        // repris son vol, chargé, en direction du demandeur.
+        try {
+            const io = socketConfig.getIO();
+            const commandeResult = await db.query(
+                `SELECT id_hopital_demandeur, groupe_sanguin, rhesus FROM medical_logistics.commandes WHERE id_commande = $1`,
+                [id_commande]
+            );
+            const infos = commandeResult.rows[0];
+            if (infos && io) {
+                io.to(`hospital_${infos.id_hopital_demandeur}`).emit('drone_evenement', {
+                    message: `Le drone a quitté l'hôpital fournisseur avec votre commande de ${infos.groupe_sanguin}${infos.rhesus || ''} — livraison en cours.`,
+                    id_commande
+                });
+                io.to('admin_room').emit('drone_evenement', {
+                    message: `Chargement confirmé pour la commande #${id_commande.toString().slice(0, 8)} — le drone repart vers l'hôpital demandeur.`,
+                    id_commande
+                });
+            }
+        } catch (wsErr) {
+            console.warn("Avertissement WebSocket (confirmation chargement) :", wsErr.message);
+        }
+
+        res.status(200).json({ message: "Chargement confirmé. Le drone reprend son vol vers l'hôpital demandeur." });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+exports.confirmerReception = async (req, res) => {
+    const { id_commande } = req.params;
+    const id_hopital = req.user.id_hopital;
+
+    if (!id_hopital) {
+        return res.status(403).json({ message: "Seul un compte hospitalier peut confirmer une réception." });
+    }
+
+    try {
+        droneService.confirmerEtape(id_commande, id_hopital, 'RECEPTION');
+
+        // Notifie l'hôpital fournisseur et l'administration que la
+        // livraison est confirmée et que le drone rentre à vide.
+        try {
+            const io = socketConfig.getIO();
+            const commandeResult = await db.query(
+                `SELECT id_hopital_vendeur, groupe_sanguin, rhesus FROM medical_logistics.commandes WHERE id_commande = $1`,
+                [id_commande]
+            );
+            const infos = commandeResult.rows[0];
+            if (infos && io) {
+                io.to(`hospital_${infos.id_hopital_vendeur}`).emit('drone_evenement', {
+                    message: `Réception confirmée par l'hôpital demandeur pour la commande de ${infos.groupe_sanguin}${infos.rhesus || ''} — le drone rentre à la base.`,
+                    id_commande
+                });
+                io.to('admin_room').emit('drone_evenement', {
+                    message: `Réception confirmée pour la commande #${id_commande.toString().slice(0, 8)} — retour du drone à la base.`,
+                    id_commande
+                });
+            }
+        } catch (wsErr) {
+            console.warn("Avertissement WebSocket (confirmation réception) :", wsErr.message);
+        }
+
+        res.status(200).json({ message: "Réception confirmée. Le drone entame son retour à la base." });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
 // Initialise le suivi de livraison : crée la ligne dans drone_telemetry.commandes
 // à la position de l'hôpital vendeur (départ de la mission simulée).
 async function initialiserTelemetrie(commande) {

@@ -19,4 +19,10 @@ router.get('/', commandeController.getMyCommandes); // alias : GET /api/commande
 // Télémétrie simulée du drone pour une commande en cours de livraison
 router.get('/telemetrie/:id_commande', commandeController.getTelemetrieCommande);
 
+// Points de contrôle humains sur la simulation de livraison :
+// confirmation du chargement (hôpital fournisseur) et de la réception
+// (hôpital demandeur), cf. commandeController.confirmerChargement/Reception.
+router.post('/:id_commande/confirmer-chargement', commandeController.confirmerChargement);
+router.post('/:id_commande/confirmer-reception', commandeController.confirmerReception);
+
 module.exports = router;

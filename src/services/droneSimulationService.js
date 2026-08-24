@@ -10,6 +10,7 @@
 //   2. Hôpital vendeur  → Hôpital demandeur (livraison — statut métier passe à LIVREE ici)
 //   3. Hôpital demandeur → BASE            (retour à vide)
 const db = require('../../config/db');
+const socketConfig = require('../../config/socket');
 
 // --- CONFIGURATION DE LA SIMULATION ---
 const ACCELERATION_TEMPS = 5; // 1 seconde réelle = 5 secondes de vol simulé
@@ -78,6 +79,23 @@ function construireTroncon(nom, depart, arrivee) {
     };
 }
 
+// Notifie en temps réel (WebSocket) l'hôpital dont l'action est attendue,
+// une seule fois par arrivée (mission.notificationEnvoyeePour évite les
+// doublons si plusieurs requêtes de télémétrie arrivent en même temps).
+function notifierArriveeEnAttente(mission, id_hopital_cible, message) {
+    const cle = `${mission.phaseIndex}`;
+    if (mission.notificationEnvoyeePour === cle) return;
+    mission.notificationEnvoyeePour = cle;
+    try {
+        const io = socketConfig.getIO();
+        if (io && id_hopital_cible) {
+            io.to(`hospital_${id_hopital_cible}`).emit('drone_evenement', { message });
+        }
+    } catch (err) {
+        console.warn("Avertissement WebSocket (arrivée drone) :", err.message);
+    }
+}
+
 // --- FONCTIONS EXPORTÉES ---
 
 const getFlotte = () => Array.from(flotteDrones.values());
@@ -138,11 +156,20 @@ const demarrerMission = async (id_commande, id_hopital_vendeur, id_hopital_deman
         phaseIndex: 0,
         heureDebutPhase: Date.now(),
         batterieAvantPhase: droneDispo.batterie,
+        idVendeur: id_hopital_vendeur,
+        idDemandeur: id_hopital_demandeur,
         nomVendeur: vendeur.nom,
         nomDemandeur: demandeur.nom,
         base: { nom: BASE_DRONE.nom, ...posBase },
         pointVendeur: posVendeur,
-        pointDemandeur: posDemandeur
+        pointDemandeur: posDemandeur,
+        // AJOUT : points de contrôle humains. Le drone ne franchit plus
+        // automatiquement l'étape "chargement" (arrivée chez le vendeur)
+        // ni l'étape "réception" (arrivée chez le demandeur) : il attend
+        // une confirmation explicite de l'hôpital concerné, via
+        // confirmerEtape() ci-dessous, avant de reprendre son vol.
+        enAttenteConfirmation: null,      // null | 'CHARGEMENT' | 'RECEPTION'
+        notificationEnvoyeePour: null      // évite de renotifier à chaque poll
     });
 
     return droneDispo.id;
@@ -150,9 +177,41 @@ const demarrerMission = async (id_commande, id_hopital_vendeur, id_hopital_deman
 
 const LIBELLES_PHASE = {
     ALLER_CHERCHER: "En route vers l'hôpital fournisseur",
+    ATTENTE_CHARGEMENT: "Arrivé chez le fournisseur — en attente de confirmation du chargement",
     LIVRAISON: "Livraison vers l'hôpital demandeur",
+    ATTENTE_RECEPTION: "Arrivé chez le demandeur — en attente de confirmation de réception",
     RETOUR_BASE: "Retour à la base",
     AU_SOL: "Mission terminée — drone à la base"
+};
+
+/**
+ * Confirme une étape en attente (chargement chez le vendeur, ou réception
+ * chez le demandeur) et relance le vol vers le tronçon suivant.
+ * Lève une erreur si aucune confirmation n'est attendue, ou si l'hôpital
+ * qui confirme n'est pas celui attendu pour cette étape précise.
+ */
+const confirmerEtape = (id_commande, id_hopital_confirmant, typeAttendu) => {
+    const mission = missionsActives.get(String(id_commande));
+    if (!mission) {
+        throw new Error("Aucune mission de livraison active pour cette commande.");
+    }
+    if (mission.enAttenteConfirmation !== typeAttendu) {
+        throw new Error("Cette commande n'est pas en attente de cette confirmation pour le moment.");
+    }
+
+    const idHopitalAttendu = typeAttendu === 'CHARGEMENT' ? mission.idVendeur : mission.idDemandeur;
+    if (String(idHopitalAttendu) !== String(id_hopital_confirmant)) {
+        throw new Error("Seul l'établissement concerné par cette étape peut la confirmer.");
+    }
+
+    mission.enAttenteConfirmation = null;
+    mission.notificationEnvoyeePour = null;
+    mission.phaseIndex += 1;
+    mission.heureDebutPhase = Date.now();
+    // mission.batterieAvantPhase a déjà été fixée au moment du gel (cf.
+    // getTelemetrieEtPersister), pas besoin de la recalculer ici.
+
+    return true;
 };
 
 /**
@@ -162,6 +221,33 @@ const LIBELLES_PHASE = {
 const getTelemetrieEtPersister = async (id_commande) => {
     const mission = missionsActives.get(String(id_commande));
     if (!mission) return null;
+
+    // Mission gelée : en attente d'une confirmation humaine. On ne
+    // recalcule rien, on renvoie la position figée à l'arrivée du tronçon
+    // qui vient de se terminer, en indiquant clairement quelle action est
+    // attendue et de qui.
+    if (mission.enAttenteConfirmation) {
+        const phaseGelee = mission.phases[mission.phaseIndex];
+        const positionGelee = phaseGelee.arrivee;
+        const phaseActuelle = mission.enAttenteConfirmation === 'CHARGEMENT' ? 'ATTENTE_CHARGEMENT' : 'ATTENTE_RECEPTION';
+
+        return {
+            drone_id: mission.drone_id,
+            lat: parseFloat(positionGelee.lat.toFixed(6)),
+            lng: parseFloat(positionGelee.lng.toFixed(6)),
+            speed: 0,
+            altitude: 0,
+            battery: mission.batterieAvantPhase,
+            progression: 1,
+            statut: mission.phaseIndex >= 1 ? 'LIVREE' : 'EN_VOL',
+            phase: phaseActuelle,
+            phase_libelle: LIBELLES_PHASE[phaseActuelle],
+            en_attente_confirmation: mission.enAttenteConfirmation,
+            base: mission.base,
+            point_vendeur: { ...mission.pointVendeur, nom: mission.nomVendeur, id_hopital: mission.idVendeur },
+            point_demandeur: { ...mission.pointDemandeur, nom: mission.nomDemandeur, id_hopital: mission.idDemandeur }
+        };
+    }
 
     let phase = mission.phases[mission.phaseIndex];
     let tempsEcoule = Date.now() - mission.heureDebutPhase;
@@ -179,23 +265,38 @@ const getTelemetrieEtPersister = async (id_commande) => {
     let missionCompletementTerminee = false;
 
     if (phaseTerminee) {
-        if (mission.phaseIndex < mission.phases.length - 1) {
-            // Passage au tronçon suivant
-            mission.batterieAvantPhase = batterieCourante;
-            mission.phaseIndex += 1;
-            mission.heureDebutPhase = Date.now();
-            phase = mission.phases[mission.phaseIndex];
+        // Fige la consommation batterie au moment de l'arrivée, quelle que
+        // soit la suite (gel en attente de confirmation, ou avancée directe
+        // pour le tronçon retour qui n'a pas de porte de confirmation).
+        mission.batterieAvantPhase = batterieCourante;
+
+        if (mission.phaseIndex === 0) {
+            // Arrivée chez le fournisseur : on gèle, en attente que le
+            // fournisseur confirme avoir attaché le colis sur le drone.
+            mission.enAttenteConfirmation = 'CHARGEMENT';
+            notifierArriveeEnAttente(mission, mission.idVendeur, "Le drone est arrivé chez vous et attend la confirmation du chargement du colis.");
+        } else if (mission.phaseIndex === 1) {
+            // Arrivée chez le demandeur : on gèle, en attente que le
+            // demandeur confirme avoir réceptionné le colis.
+            mission.enAttenteConfirmation = 'RECEPTION';
+            notifierArriveeEnAttente(mission, mission.idDemandeur, "Le drone est arrivé chez vous avec la commande et attend la confirmation de réception.");
         } else {
-            // Dernier tronçon (retour base) terminé : mission close
+            // Fin du tronçon retour base : aucune confirmation requise,
+            // la mission se termine directement.
             missionCompletementTerminee = true;
         }
     }
 
-    // Statut métier de la commande : livrée dès la fin du tronçon LIVRAISON,
-    // qu'importe si le drone est encore en train de rentrer à la base.
-    const livraisonEffectuee = mission.phaseIndex >= 2; // on est entré dans RETOUR_BASE ou au-delà
+    // Statut métier de la commande : livrée dès l'arrivée chez le
+    // demandeur (fin du tronçon LIVRAISON), qu'importe si le drone est
+    // encore en attente de confirmation ou en train de rentrer à la base.
+    const livraisonEffectuee = mission.phaseIndex >= 1 && (mission.enAttenteConfirmation === 'RECEPTION' || mission.phaseIndex >= 2);
     const statutMetier = livraisonEffectuee ? 'LIVREE' : 'EN_VOL';
-    const phaseActuelle = missionCompletementTerminee ? 'AU_SOL' : phase.nom;
+    const phaseActuelle = missionCompletementTerminee
+        ? 'AU_SOL'
+        : (mission.enAttenteConfirmation === 'CHARGEMENT' ? 'ATTENTE_CHARGEMENT'
+            : mission.enAttenteConfirmation === 'RECEPTION' ? 'ATTENTE_RECEPTION'
+            : phase.nom);
 
     // Mise à jour de la flotte en mémoire
     const drone = flotteDrones.get(mission.drone_id);
@@ -233,12 +334,14 @@ const getTelemetrieEtPersister = async (id_commande) => {
         statut: statutMetier,          // statut métier de la commande : EN_VOL | LIVREE
         phase: phaseActuelle,          // étape du vol du drone
         phase_libelle: LIBELLES_PHASE[phaseActuelle],
+        en_attente_confirmation: null,
         // Points fixes pour l'affichage des marqueurs côté carte (base +
         // hôpital vendeur + hôpital demandeur) — évite un appel API en plus
-        // pour le frontend.
+        // pour le frontend. id_hopital permet au frontend de savoir si
+        // l'utilisateur connecté est habilité à confirmer une étape.
         base: mission.base,
-        point_vendeur: { ...mission.pointVendeur, nom: mission.nomVendeur },
-        point_demandeur: { ...mission.pointDemandeur, nom: mission.nomDemandeur }
+        point_vendeur: { ...mission.pointVendeur, nom: mission.nomVendeur, id_hopital: mission.idVendeur },
+        point_demandeur: { ...mission.pointDemandeur, nom: mission.nomDemandeur, id_hopital: mission.idDemandeur }
     };
 
     if (missionCompletementTerminee) {
@@ -253,6 +356,7 @@ module.exports = {
     ajouterDrone,
     retirerDrone,
     demarrerMission,
+    confirmerEtape,
     getTelemetrieEtPersister,
     BASE_DRONE
 };

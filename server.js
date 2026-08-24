@@ -24,9 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 // Servir les fichiers statiques de l'interface (HTML/CSS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==========================================
 // IMPORTATION ET LIAISON DES ROUTES API
-// ==========================================
 const authRoutes = require('./src/routes/authRoutes');
 app.use('/api/auth', authRoutes);
 const userRoutes = require('./src/routes/userRoutes');
@@ -54,12 +52,8 @@ app.use('/api', settingsRoutes);
 const predictionRoutes = require('./src/routes/predictionRoutes');
 app.use('/api/predictions', predictionRoutes);
 
-// ==========================================
-// GESTION D'ERREUR GLOBALE
-// ==========================================
-// Filet de sécurité : toute exception non interceptée dans un controller
-// aboutit ici plutôt que de faire planter le processus silencieusement.
-// Répond à RNF-08 du cahier des charges (gestion explicite des erreurs).
+
+
 app.use((err, req, res, next) => {
     console.error('[ERREUR NON GÉRÉE]', err);
     res.status(err.status || 500).json({
@@ -79,7 +73,6 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`Serveur BloodNet en ligne sur le port ${PORT}`);
 
     // Diffusion automatique du serveur sur le réseau local
-    // (correction : le port diffusé suit désormais réellement le port d'écoute)
     const service = bonjour.publish({
         name: 'BloodNet',
         type: 'http',

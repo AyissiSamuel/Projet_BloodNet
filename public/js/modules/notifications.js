@@ -43,6 +43,16 @@ export const initNotifications = (token, role) => {
         showToast(payload.message, payload.statut === 'ACCEPTEE' ? "success" : "error");
     });
 
+    // --- Étapes du vol simulé (arrivée en attente de confirmation,
+    // reprise après confirmation) — cf. points de contrôle humains ajoutés
+    // à droneSimulationService.js. Permet à un hôpital d'être alerté même
+    // s'il n'a pas la modale de suivi de commande ouverte au moment où le
+    // drone arrive chez lui.
+    socket.on('drone_evenement', (payload) => {
+        pushNotification('drone', payload.message);
+        showToast(payload.message, "info");
+    });
+
     // --- Appel SOS diffusé à tout le réseau ---
     socket.on('nouvelle_alerte_sos', (payload) => {
         pushNotification('sos', payload.message);
@@ -72,7 +82,8 @@ const ICONES = {
     commande: 'fa-solid fa-truck-fast',
     succes: 'fa-solid fa-circle-check',
     refus: 'fa-solid fa-circle-xmark',
-    sos: 'fa-solid fa-triangle-exclamation'
+    sos: 'fa-solid fa-triangle-exclamation',
+    drone: 'fa-solid fa-drone'
 };
 
 const renderBadge = () => {

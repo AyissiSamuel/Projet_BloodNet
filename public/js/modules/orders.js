@@ -145,6 +145,7 @@ const openDroneTrackingModal = (orderId, token) => {
         if (layer && trackingMap) trackingMap.removeLayer(layer);
     });
     baseMarker = vendeurMarker = demandeurMarker = droneMarker = routeLine = null;
+    document.getElementById("drone-action-zone").style.display = "none";
 
     setTimeout(() => {
         if (!trackingMap) {
@@ -181,6 +182,11 @@ const iconeDemandeur = L.divIcon({
 const startTelemetryPolling = (orderId, token) => {
     clearInterval(telemetryInterval);
 
+    // Hôpital connecté, pour savoir si un bouton de confirmation doit lui
+    // être proposé.
+    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+    const idHopitalConnecte = userInfo.id_hopital;
+
     const updateTelemetry = async () => {
         try {
             // FIXED: /api/commandes/telemetrie/ au lieu de /api/drones/telemetrie/
@@ -197,6 +203,7 @@ const startTelemetryPolling = (orderId, token) => {
             // télémétrie. On arrête le polling proprement.
             if (!data) {
                 document.getElementById("telemetry-drone-id").textContent = "Mission terminée";
+                document.getElementById("drone-action-zone").style.display = "none";
                 clearInterval(telemetryInterval);
                 return;
             }
@@ -245,6 +252,11 @@ const startTelemetryPolling = (orderId, token) => {
             }
             trackingMap.panTo(pos);
 
+            // AJOUT : affichage du bouton de confirmation, uniquement pour
+            // l'hôpital concerné par l'étape en attente (le fournisseur
+            // pour le chargement, le demandeur pour la réception).
+            updateDroneActionZone(data, orderId, token, idHopitalConnecte);
+
             if (data.phase === 'AU_SOL') {
                 clearInterval(telemetryInterval);
             }
@@ -256,6 +268,72 @@ const startTelemetryPolling = (orderId, token) => {
 
     updateTelemetry();
     telemetryInterval = setInterval(updateTelemetry, 3000);
+};
+
+// Affiche/masque et configure le bouton d'action (confirmer chargement ou
+// réception) selon l'état de la mission et l'hôpital connecté.
+const updateDroneActionZone = (data, orderId, token, idHopitalConnecte) => {
+    const zone = document.getElementById("drone-action-zone");
+    const messageEl = document.getElementById("drone-action-message");
+    const btn = document.getElementById("btn-drone-action");
+    if (!zone || !btn) return;
+
+    if (!data.en_attente_confirmation) {
+        zone.style.display = "none";
+        return;
+    }
+
+    const estChargement = data.en_attente_confirmation === 'CHARGEMENT';
+    const hopitalConcerne = estChargement ? data.point_vendeur?.id_hopital : data.point_demandeur?.id_hopital;
+    const estConcerne = idHopitalConnecte && hopitalConcerne && String(idHopitalConnecte) === String(hopitalConcerne);
+
+    if (!estConcerne) {
+        // Un autre établissement doit agir : on informe sans proposer de bouton.
+        zone.style.display = "block";
+        messageEl.textContent = estChargement
+            ? "En attente que l'hôpital fournisseur confirme le chargement du colis sur le drone."
+            : "En attente que l'hôpital demandeur confirme la réception du colis.";
+        btn.style.display = "none";
+        return;
+    }
+
+    zone.style.display = "block";
+    btn.style.display = "inline-block";
+
+    if (estChargement) {
+        messageEl.textContent = "Le drone est arrivé chez vous. Avez-vous attaché le colis ?";
+        btn.textContent = "✅ Confirmer le chargement — le drone peut partir";
+        btn.onclick = () => confirmerEtapeDrone(orderId, 'confirmer-chargement', token);
+    } else {
+        messageEl.textContent = "Le drone est arrivé avec la commande. Avez-vous bien reçu le colis ?";
+        btn.textContent = "✅ Confirmer la réception";
+        btn.onclick = () => confirmerEtapeDrone(orderId, 'confirmer-reception', token);
+    }
+};
+
+const confirmerEtapeDrone = async (orderId, action, token) => {
+    const btn = document.getElementById("btn-drone-action");
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await fetch(`/api/commandes/${orderId}/${action}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+            showToast(data.message || "Confirmation enregistrée.", "success");
+            document.getElementById("drone-action-zone").style.display = "none";
+        } else {
+            showToast(data.message || "Erreur lors de la confirmation.", "error");
+        }
+    } catch (err) {
+        console.error("Erreur confirmation étape drone :", err);
+        showToast("Erreur de connexion au serveur.", "error");
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 };
 
 // --- 5. ÉVÉNEMENTS DES MODALES ---

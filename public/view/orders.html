@@ -107,6 +107,15 @@
             </div>
             <!-- CONTENEUR CARTE LEAFLET -->
             <div id="drone-map" style="height: 380px; width: 100%; border-radius: 8px; border: 1px solid #cbd5e1;"></div>
+
+            <!-- AJOUT : zone d'action pour les points de contrôle humains
+                 (confirmation de chargement / réception). N'apparaît que
+                 lorsque le drone attend une confirmation ET que l'hôpital
+                 connecté est celui concerné par cette étape précise. -->
+            <div id="drone-action-zone" style="margin-top: 1rem; display: none; text-align: center; background: #fffbeb; border: 1px solid #fbbf24; border-radius: 8px; padding: 12px;">
+                <p id="drone-action-message" style="margin: 0 0 10px 0; color: #92400e; font-weight: 600;"></p>
+                <button id="btn-drone-action" class="btn-primary"></button>
+            </div>
         </div>
     </div>
 </div>

@@ -1,9 +1,13 @@
 //admin-hopitaux.js
+import { initStockModule } from './stock.js';
 import { showToast } from './toast.js';
 
 export const initAdminHopitauxModule = async (token) => {
     setupConfirmModal(token);
     await fetchHopitaux(token);
+    if (typeof initStockModule ==='function'){
+        initStockModule(token, true);
+    }
 };
 
 // --- RÉCUPÉRATION DES DONNÉES ---

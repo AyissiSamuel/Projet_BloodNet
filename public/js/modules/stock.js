@@ -134,7 +134,7 @@ export const fetchDashboardKPIs = async (token) => {
 // --- CHARGEMENT DU STOCK ---
 const fetchStockData = async (token) => {
     try {
-        const response = await fetch('/api/poches/agrege', {
+        const response = await fetch('/api/stocks/aggregated', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 

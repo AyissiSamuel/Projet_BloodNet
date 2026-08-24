@@ -297,7 +297,7 @@ exports.getStockAggregatedWithVolume = async (req, res) => {
                 COUNT(*)::INTEGER AS "total_count", 
                 COALESCE(SUM(volume_ml), 0)::INTEGER AS "total_volume"
             FROM medical_logistics.poches_sang 
-            WHERE id_hopital = $1 AND statut = 'DISPONIBLE'
+            WHERE id_hopital = $1 AND statut = 'DISPONIBLE' AND date_peremption > NOW()
             GROUP BY groupe_sanguin
             ORDER BY groupe_sanguin ASC;
         `;

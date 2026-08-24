@@ -1,8 +1,24 @@
-//stock.js
+//Stock.js
 import { showToast } from './toast.js';
 
 let chartInstance = null;
 let dashboardMapInstance = null;
+
+// --- GESTION DES FILTRES DE STOCK ---
+const setupFilterEvents = (token) => {
+    const filterInput = document.getElementById("filter-blood-group");
+    if (filterInput && !filterInput.dataset.listenerAttached) {
+        filterInput.dataset.listenerAttached = "true";
+        filterInput.addEventListener("input", (e) => {
+            const query = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll("#stock-table-body tr");
+            rows.forEach(row => {
+                const groupText = row.querySelector("td")?.textContent.toLowerCase() || "";
+                row.style.display = groupText.includes(query) ? "" : "none";
+            });
+        });
+    }
+};
 
 export const initStockModule = async (token, isDashboardHome = false) => {
     // Initialisation conditionnelle de la carte 
@@ -16,31 +32,23 @@ export const initStockModule = async (token, isDashboardHome = false) => {
             attribution: '© OpenStreetMap'
         }).addTo(dashboardMapInstance);
 
-        // CORRECTIF : la carte n'affichait jusqu'ici aucun marqueur — le
-        // tileLayer était posé mais aucune donnée d'hôpital n'était jamais
-        // chargée ni affichée. On réutilise l'endpoint /api/hospitals/overview
-        // (déjà existant côté backend mais jamais appelé) pour poser un
-        // marqueur par hôpital affilié, avec un clic pour voir son stock.
         await loadHospitalsOnMap(dashboardMapInstance, token);
     }
 
-    // Attachement des écouteurs d'événements pour les modales et formulaires
     setupStockEvents(token);
 
-    await fetchStockData(token);
-    
     if (isDashboardHome) {
+        await fetchStockData(token);
         await fetchDashboardKPIs(token);
         await fetchAffiliatedHospitalsStock(token);
     } else {
-        setupStockEvents(token);
         setupFilterEvents(token);
         await fetchStockData(token);
         await fetchUsedPockets(token);
     }
 };
 
-// --- CARTE : HÔPITAUX AFFILIÉS, VISIBILITÉ TEMPS RÉEL + CLIC POUR LE STOCK ---
+// --- CARTE : HÔPITAUX AFFILIÉS ---
 const loadHospitalsOnMap = async (map, token) => {
     try {
         const response = await fetch('/api/hospitals/overview', {
@@ -65,8 +73,6 @@ const loadHospitalsOnMap = async (map, token) => {
 
             const marker = L.marker([lat, lng], { icon: icone }).addTo(map);
 
-            // Le clic affiche le détail du stock par groupe sanguin (stock_details
-            // est un objet JSON { "O+": 12, "A-": 3, ... } renvoyé par le backend).
             const stockLines = Object.entries(h.stock_details || {})
                 .map(([groupe, qte]) => `<span style="display:inline-block; width:48%; font-size:0.8rem;"><strong>${groupe}</strong> : ${qte}</span>`)
                 .join('');
@@ -92,7 +98,7 @@ const loadHospitalsOnMap = async (map, token) => {
     }
 };
 
-// --- MISE À JOUR DES KPI DANS LE DASHBOARD ---
+// --- MISE À JOUR DES KPI ---
 export const fetchDashboardKPIs = async (token) => {
     try {
         const response = await fetch('/api/dashboard/kpis', {
@@ -106,7 +112,6 @@ export const fetchDashboardKPIs = async (token) => {
 
         const data = await response.json();
 
-        // Injecte les valeurs réelles dans le HTML
         const totalElem = document.getElementById("kpi-total-stock");
         const criticalElem = document.getElementById("kpi-critical-stock");
         const pendingElem = document.getElementById("kpi-pending-orders");
@@ -119,14 +124,14 @@ export const fetchDashboardKPIs = async (token) => {
 
     } catch (error) {
         console.error("Impossible de charger les KPI :", error);
-        // Fallback visuel en cas d'erreur
         ["kpi-total-stock", "kpi-critical-stock", "kpi-pending-orders", "kpi-active-donors"].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.textContent = "N/A";
         });
     }
 };
-// --- 1. CHARGEMENT DU STOCK ---
+
+// --- CHARGEMENT DU STOCK ---
 const fetchStockData = async (token) => {
     try {
         const response = await fetch('/api/poches/agrege', {
@@ -137,7 +142,7 @@ const fetchStockData = async (token) => {
 
         const stockData = await response.json();
         renderStockTableAndCards(stockData);
-        
+
         if (document.getElementById("stockChart")) {
             renderStockChart(stockData);
         }
@@ -147,95 +152,101 @@ const fetchStockData = async (token) => {
     }
 };
 
-// --- 2. RENDU DU TABLEAU ET CARTE DES STOCKS ---
+// --- RENDU DU TABLEAU ET CARTE DES STOCKS ---
 const renderStockTableAndCards = (data) => {
     const tbody = document.getElementById("stock-table-body");
     const cardsContainer = document.getElementById("stock-stat-cards");
 
-    if (!tbody || !cardsContainer) return;
+    if (tbody) {
+        tbody.innerHTML = "";
+        if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Aucun stock disponible pour le moment.</td></tr>`;
+        } else {
+            data.forEach(item => {
+                const group = item.blood_group || "N/A";
+                const count = parseInt(item.total_count, 10) || 0;
+                const volume = parseInt(item.total_volume, 10) || 0;
+                const estCritique = count <= 5;
 
-    tbody.innerHTML = "";
-    cardsContainer.innerHTML = "";
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td><strong class="badge-blood">${group}</strong></td>
+                    <td>${count} poche(s)</td>
+                    <td>${volume.toLocaleString('fr-FR')} mL</td>
+                    <td>
+                        <span class="status-badge ${estCritique ? 'status-low' : 'status-ok'}">
+                            ${estCritique ? 'Critique' : 'En Stock'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn-sm btn-danger btn-use-stock" data-group="${group}" ${count === 0 ? 'disabled' : ''}>
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i> Sortir
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
 
-    // 1. Mise à jour du tableau HTML
-    data.forEach(item => {
-        // Adaptation aux noms de colonnes SQL : groupe_sanguin, composant, quantite_disponible
-        const group = item.groupe_sanguin || "N/A";
-        const component = item.composant || "Non spécifié";
-        const count = parseInt(item.quantite_disponible, 10) || 0;
-
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td><strong class="badge-blood">${group}</strong></td>
-            <td>${component}</td>
-            <td>${count} poche(s)</td>
-            <td>
-                <span class="status-badge ${count > 5 ? 'status-ok' : 'status-low'}">
-                    ${count > 5 ? 'En Stock' : 'Critique'}
-                </span>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-
-    // 2. Aggrégation par groupe sanguin pour l'affichage sous forme de Cartes
-    const aggregatedByGroup = data.reduce((acc, curr) => {
-        const group = curr.groupe_sanguin;
-        const count = parseInt(curr.quantite_disponible, 10) || 0;
-        
-        acc[group] = (acc[group] || 0) + count;
-        return acc;
-    }, {});
-
-    // 3. Génération des Cartes pour chaque groupe (A+, O-, etc.)
-    Object.entries(aggregatedByGroup).forEach(([group, totalPoches]) => {
-        const card = document.createElement("div");
-        card.className = "card-stock";
-        card.innerHTML = `
-            <h3>${group}</h3>
-            <p class="count">${totalPoches} poche(s)</p>
-            <small>Total disponible</small>
-        `;
-        cardsContainer.appendChild(card);
-    });
-};
-
-// --- 3. GRAPHIQUE CHART.JS ---
-const renderStockChart = (data) => {
-    const ctx = document.getElementById("stockChart");
-    if (!ctx) return;
-
-    // Extraction des groupes et des quantités depuis le payload d'origine
-    const labels = data.map(item => `${item.groupe_sanguin} (${item.composant})`);
-    const quantities = data.map(item => parseInt(item.quantite_disponible, 10) || 0);
-
-    // Destruction de l'ancien graphique s'il existe déjà
-    if (window.myStockChart) {
-        window.myStockChart.destroy();
+            document.querySelectorAll(".btn-use-stock").forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    openUseModal(e.currentTarget.dataset.group);
+                });
+            });
+        }
     }
 
-    window.myStockChart = new Chart(ctx, {
+    if (cardsContainer) {
+        cardsContainer.innerHTML = "";
+        data.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "stat-card";
+            card.innerHTML = `
+                <h3>${item.blood_group}</h3>
+                <p class="count">${item.total_count} poche(s)</p>
+                <small>${(item.total_volume || 0).toLocaleString('fr-FR')} mL au total</small>
+            `;
+            cardsContainer.appendChild(card);
+        });
+    }
+};
+
+// --- GRAPHIQUE CHART.JS ---
+const renderStockChart = (data) => {
+    const ctx = document.getElementById("stockChart");
+    if (!ctx || typeof Chart === 'undefined') return;
+
+    const labels = data.map(item => item.blood_group);
+    const quantities = data.map(item => parseInt(item.total_count, 10) || 0);
+
+    // Utilisation de la variable du module chartInstance
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
                 label: 'Poches disponibles',
                 data: quantities,
-                backgroundColor: 'rgba(220, 53, 69, 0.7)',
-                borderColor: 'rgba(220, 53, 69, 1)',
-                borderWidth: 1
+                backgroundColor: 'rgba(220, 38, 38, 0.75)',
+                borderColor: 'rgba(220, 38, 38, 1)',
+                borderWidth: 1,
+                borderRadius: 4
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             scales: {
-                y: { beginAtZero: true }
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
             }
         }
     });
 };
-// --- 4. STOCK DES HÔPITAUX AFFILIÉS PAR GROUPE SANGUIN ---
 
+// --- STOCK DES HÔPITAUX AFFILIÉS ---
 const GROUPES_SANGUINS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
 const fetchAffiliatedHospitalsStock = async (token) => {
@@ -289,7 +300,7 @@ const fetchAffiliatedHospitalsStock = async (token) => {
     }
 };
 
-// --- 5. GESTION DES MODALES ET ÉVÉNEMENTS ---
+// --- MODALES ET ÉVÉNEMENTS ---
 const openUseModal = (group) => {
     const inputGroup = document.getElementById("use-blood-group");
     const displayGroup = document.getElementById("use-group-display");
@@ -302,7 +313,6 @@ const openUseModal = (group) => {
 };
 
 const setupStockEvents = (token) => {
-    // Modale d'ajout
     const modalAdd = document.getElementById("modal-add-stock");
     document.getElementById("btn-open-add-modal")?.addEventListener("click", () => {
         if (modalAdd) modalAdd.style.display = "flex";
@@ -314,7 +324,6 @@ const setupStockEvents = (token) => {
         if (modalAdd) modalAdd.style.display = "none";
     });
 
-    // Modale de sortie
     const modalUse = document.getElementById("modal-use-stock");
     document.getElementById("close-use-modal")?.addEventListener("click", () => {
         if (modalUse) modalUse.style.display = "none";
@@ -323,7 +332,6 @@ const setupStockEvents = (token) => {
         if (modalUse) modalUse.style.display = "none";
     });
 
-    // Soumission Formulaire Ajout
     const formAdd = document.getElementById("form-add-stock");
     if (formAdd && !formAdd.dataset.listenerAttached) {
         formAdd.dataset.listenerAttached = "true";
@@ -353,7 +361,6 @@ const setupStockEvents = (token) => {
         });
     }
 
-    // Soumission Formulaire Déstockage (FIFO)
     const formUse = document.getElementById("form-use-stock");
     if (formUse && !formUse.dataset.listenerAttached) {
         formUse.dataset.listenerAttached = "true";
@@ -374,10 +381,6 @@ const setupStockEvents = (token) => {
             const data = await res.json().catch(() => ({}));
 
             if (res.ok) {
-                // AJOUT (audit) : le backend renvoie déjà les références
-                // exactes des poches déstockées (poches_utilisees) — elles
-                // étaient jusqu'ici ignorées côté frontend, rendant
-                // impossible de savoir QUELLE poche avait été sortie.
                 const refs = (data.poches_utilisees || [])
                     .map(id => `#${id.toString().slice(0, 8)}`)
                     .join(', ');
@@ -396,7 +399,7 @@ const setupStockEvents = (token) => {
     }
 };
 
-// --- 5. TRAÇABILITÉ DES POCHES DÉSTOCKÉES ---
+// --- TRAÇABILITÉ DES POCHES DÉSTOCKÉES ---
 export const fetchUsedPockets = async (token) => {
     const tbody = document.getElementById("used-pockets-table-body");
     if (!tbody) return;

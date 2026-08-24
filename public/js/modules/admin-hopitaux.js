@@ -1,3 +1,4 @@
+//admin-hopitaux.js
 import { showToast } from './toast.js';
 
 export const initAdminHopitauxModule = async (token) => {
@@ -23,7 +24,10 @@ const fetchHopitaux = async (token) => {
         const pending = await pendingRes.json();
         const all = await allRes.json();
 
-        document.getElementById("pending-hospitals-count").textContent = pending.length;
+        const pendingCountElem = document.getElementById("pending-hospitals-count");
+        if (pendingCountElem) {
+         pendingCountElem.textContent = pending.length;
+        }
 
         renderPendingTable(pending, token);
         renderAllTable(all.filter(h => h.statut !== 'EN_ATTENTE'), token);

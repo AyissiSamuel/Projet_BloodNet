@@ -36,10 +36,21 @@ exports.registerHospital = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(mot_de_passe, salt);
 
+        // CORRECTIF (audit approfondi) : 'EN_ATTENTE' n'est PAS une valeur
+        // acceptée pour utilisateurs.statut_compte — seule la table
+        // hopitaux accepte ce statut (EN_ATTENTE/ACTIF/DESACTIVE). La
+        // colonne statut_compte, elle, ne connaît que 'ACTIF'/'SUSPENDU'
+        // (cf. contrainte chk_utilisateur_statut, déjà respectée partout
+        // ailleurs dans le code — settingsController.js, userController.js).
+        // Insérer 'EN_ATTENTE' ici provoquait une violation de contrainte à
+        // CHAQUE inscription d'hôpital, faisant échouer silencieusement la
+        // transaction (ROLLBACK, erreur 500 générique) — une cause
+        // plausible d'instabilité ressentie sur d'autres écrans qui
+        // dépendent d'un compte hôpital correctement créé.
         const insertUserQuery = `
             INSERT INTO core_identity.utilisateurs 
                 (nom, email, mot_de_passe, role, id_hopital, statut_compte, date_inscription)
-            VALUES ($1, $2, $3, 'ADMIN_HOPITAL', $4, 'EN_ATTENTE', NOW())
+            VALUES ($1, $2, $3, 'ADMIN_HOPITAL', $4, 'SUSPENDU', NOW())
             RETURNING id_utilisateur, nom, email, role, id_hopital, statut_compte;
         `;
 
@@ -77,7 +88,7 @@ exports.login = async (req, res) => {
         // absent de la réponse, ce qui laissait le nom "Hôpital Central de
         // Yaoundé" codé en dur dans index.html s'afficher pour tout le monde).
         const result = await db.query(
-            `SELECT u.*, h.nom AS nom_hopital
+            `SELECT u.*, h.nom AS nom_hopital, h.statut AS statut_hopital
              FROM core_identity.utilisateurs u
              LEFT JOIN medical_logistics.hopitaux h ON u.id_hopital = h.id_hopital
              WHERE LOWER(u.email) = LOWER($1)`,
@@ -102,14 +113,16 @@ exports.login = async (req, res) => {
         // désactivé) pouvait se connecter normalement, ce qui rendait les
         // actions "Valider / Rejeter / Désactiver" de l'espace Admin sans
         // effet réel sur l'accès à la plateforme.
+        // Bloque l'accès tant que le compte n'est pas ACTIF. Le message
+        // affiché distingue "en attente de validation" (hôpital pas encore
+        // validé par l'admin) de "suspendu" (rejeté / désactivé après coup)
+        // en se basant sur hopitaux.statut — statut_compte lui-même ne
+        // connaît que ACTIF/SUSPENDU (cf. correctif ci-dessus).
         if (user.role !== 'SUPER_ADMIN' && user.statut_compte !== 'ACTIF') {
-            const messages = {
-                EN_ATTENTE: "Votre établissement est en attente de validation par l'administration. Vous serez notifié dès l'activation de votre compte.",
-                SUSPENDU: "Votre compte a été suspendu. Contactez l'administration pour plus d'informations."
-            };
-            return res.status(403).json({
-                message: messages[user.statut_compte] || "Votre compte n'est pas actif."
-            });
+            const message = user.statut_hopital === 'EN_ATTENTE'
+                ? "Votre établissement est en attente de validation par l'administration. Vous serez notifié dès l'activation de votre compte."
+                : "Votre compte a été suspendu. Contactez l'administration pour plus d'informations.";
+            return res.status(403).json({ message });
         }
 
         // Création du jeton JWT

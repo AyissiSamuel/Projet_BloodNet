@@ -67,17 +67,18 @@ app.use('/api', (req, res) => {
 });
 
 // Démarrage du serveur
-const bonjour = require('bonjour')();
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Serveur BloodNet en ligne sur le port ${PORT}`);
 
-    // Diffusion automatique du serveur sur le réseau local
-    const service = bonjour.publish({
-        name: 'BloodNet',
-        type: 'http',
-        port: PORT
-    });
-
-    console.log('BloodNet est détectable sur le réseau local.');
+    // Diffusion locale uniquement hors-production
+    if (process.env.NODE_ENV !== 'production') {
+        try {
+            const bonjour = require('bonjour')();
+            bonjour.publish({ name: 'BloodNet', type: 'http', port: PORT });
+            console.log('BloodNet est détectable sur le réseau local.');
+        } catch (err) {
+            console.log('Bonjour mDNS non disponible localement.');
+        }
+    }
 });

@@ -2,8 +2,9 @@ const cron = require('node-cron');
 const db = require('../../config/db');
 const predictionService = require('../services/predictionService');
 const socketConfig = require('../../config/socket');
+const { sendSMSViaAndroid } = require('../services/androidSmsService'); // Assurez-vous d'avoir créé ce service
 
-// Tâche planifiée : S'exécute TOUS LES JOURS À MINUIT (00:00)
+// Tâche planifiée 1 : Scan des poches périmées (TOUS LES JOURS À MINUIT)
 cron.schedule('0 0 * * *', async () => {
     console.log('[CRON] Début du scan quotidien des poches de sang périmées...');
 
@@ -33,11 +34,7 @@ cron.schedule('0 0 * * *', async () => {
     }
 });
 
-// Tâche planifiée : S'exécute TOUS LES JOURS À 00:15 (juste après le scan
-// de péremption ci-dessus, pour que les prédictions se basent sur un stock
-// à jour). Génère des alertes RUPTURE_PREVUE et SURPLUS_A_RISQUE à partir
-// du module de prédiction, conformément à RF-15/RF-16/RF-17 et au
-// couplage acté (Option A : persistance en base).
+// Tâche planifiée 2 : Prédictions de stock & alertes (TOUS LES JOURS À 00:15)
 cron.schedule('15 0 * * *', async () => {
     console.log('[CRON] Début du calcul quotidien des prédictions de stock...');
 
@@ -50,7 +47,7 @@ cron.schedule('15 0 * * *', async () => {
         try {
             io = socketConfig.getIO();
         } catch (e) {
-            io = null; // le serveur socket peut ne pas être initialisé dans certains contextes de test
+            io = null;
         }
 
         let nbAlertesGenerees = 0;
@@ -75,8 +72,6 @@ cron.schedule('15 0 * * *', async () => {
 
                 if (!typeAlerte) continue;
 
-                // Insertion idempotente : idx_alertes_unicite_jour empêche
-                // les doublons si le cron est relancé le même jour.
                 const insertResult = await db.query(
                     `INSERT INTO medical_logistics.alertes 
                         (id_hopital, type_alerte, groupe_sanguin, message, jours_estimes)
@@ -105,6 +100,49 @@ cron.schedule('15 0 * * *', async () => {
 
     } catch (error) {
         console.error('[CRON] Erreur lors du calcul des prédictions :', error);
+    }
+});
+
+// Tâche planifiée 3 : Relance SMS des donneurs éligibles (TOUS LES JOURS À 09:00)
+cron.schedule('0 9 * * *', async () => {
+    console.log('[CRON] Début de la vérification des donneurs éligibles pour relance SMS...');
+
+    try {
+        const queryText = `
+            SELECT id_donneur, nom, telephone 
+            FROM medical_logistics.donneurs
+            WHERE statut_eligibilite = true 
+              AND date_dernier_don <= NOW() - INTERVAL '90 days'
+              AND (date_derniere_relance IS NULL OR date_derniere_relance <= NOW() - INTERVAL '30 days');
+        `;
+
+        const result = await db.query(queryText);
+        const donneurs = result.rows;
+
+        if (donneurs.length > 0) {
+            console.log(`[CRON] ${donneurs.length} donneur(s) éligible(s) trouvé(s) pour une relance.`);
+
+            for (const donneur of donneurs) {
+                const message = `Bonjour ${donneur.nom}, votre dernier don date de plus de 3 mois. Vous pouvez de nouveau donner votre sang et sauver des vies avec BloodNet !`;
+                
+                await sendSMSViaAndroid(donneur.telephone, message);
+
+                // Marquer la date de dernière relance pour éviter le spam quotidien
+                await db.query(
+                    `UPDATE medical_logistics.donneurs SET date_derniere_relance = NOW() WHERE id_donneur = $1`,
+                    [donneur.id_donneur]
+                );
+
+                // Pause de 2 secondes entre deux envois pour respecter le débit de la SIM
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+            console.log('[CRON] Relance SMS terminée avec succès.');
+        } else {
+            console.log('[CRON] Aucun donneur à relancer aujourd\'hui.');
+        }
+
+    } catch (error) {
+        console.error('[CRON] Erreur lors de la relance SMS des donneurs :', error);
     }
 });
 

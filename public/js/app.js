@@ -63,17 +63,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Boutons d'action du FAB
+    // Boutons d'action du FAB — unifiés pour utiliser la modale injectée par la vue
     document.getElementById('fab-add-bag')?.addEventListener('click', () => {
-        // Logique pour ouvrir le modal d'ajout de poche
-        console.log('Action : Ajouter une poche');
-        fabWrapper.classList.remove('active');
+        // Ouvrir la modale d'ajout si elle est présente dans la vue injectée
+        const modal = document.getElementById('modal-add') || document.getElementById('modal-add-stock') || document.getElementById('modal-add-donor');
+        if (modal) {
+            modal.style.display = 'flex';
+            const first = modal.querySelector('input, select, textarea, button');
+            if (first) first.focus();
+        } else {
+            showToast("Formulaire d'ajout non disponible dans cette vue", 'info');
+        }
+        if (fabWrapper) fabWrapper.classList.remove('active');
     });
 
-    document.getElementById('fab-place-order')?.addEventListener('click', () => {
-        // Logique pour ouvrir le modal de commande
-        console.log('Action : Passer une commande');
-        fabWrapper.classList.remove('active');
+    document.getElementById('fab-place-order')?.addEventListener('click', async () => {
+        // Tente d'ouvrir directement le modal de commande si présent,
+        // sinon charge la vue 'orders' puis déclenche l'ouverture.
+        if (fabWrapper) fabWrapper.classList.remove('active');
+
+        const openOrderBtn = document.getElementById('btn-new-order');
+        if (openOrderBtn) {
+            openOrderBtn.click();
+            return;
+        }
+
+        // Charge la vue 'orders' et ouvre le modal si possible
+        try {
+            await loadView('orders', token);
+            // petit délai pour laisser la vue s'initialiser
+            setTimeout(() => {
+                document.getElementById('btn-new-order')?.click();
+            }, 150);
+        } catch (err) {
+            console.error('Impossible d\'ouvrir la vue commandes :', err);
+            showToast("Impossible d'ouvrir la vue commandes", 'error');
+        }
     });
     // Déconnexion
     const logoutBtn = document.getElementById('logout-btn');

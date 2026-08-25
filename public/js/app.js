@@ -54,7 +54,27 @@ document.addEventListener('DOMContentLoaded', () => {
             loadView(viewName, token);
         });
     });
+    const fabTrigger = document.getElementById('fab-main-trigger');
+    const fabWrapper = document.getElementById('fab-container');
 
+    if (fabTrigger && fabWrapper) {
+        fabTrigger.addEventListener('click', () => {
+            fabWrapper.classList.toggle('active');
+        });
+    }
+
+    // Boutons d'action du FAB
+    document.getElementById('fab-add-bag')?.addEventListener('click', () => {
+        // Logique pour ouvrir le modal d'ajout de poche
+        console.log('Action : Ajouter une poche');
+        fabWrapper.classList.remove('active');
+    });
+
+    document.getElementById('fab-place-order')?.addEventListener('click', () => {
+        // Logique pour ouvrir le modal de commande
+        console.log('Action : Passer une commande');
+        fabWrapper.classList.remove('active');
+    });
     // Déconnexion
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {

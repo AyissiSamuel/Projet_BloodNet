@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const db = require('../../config/db');
 const predictionService = require('../services/predictionService');
 const socketConfig = require('../../config/socket');
-const { sendSMSViaAndroid } = require('../services/androidSmsService'); // Assurez-vous d'avoir créé ce service
+const { sendSMSViaAndroid } = require('../services/smsService'); // Assurez-vous d'avoir créé ce service
 
 // Tâche planifiée 1 : Scan des poches périmées (TOUS LES JOURS À MINUIT)
 cron.schedule('0 0 * * *', async () => {

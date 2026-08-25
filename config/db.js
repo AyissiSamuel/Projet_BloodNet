@@ -1,5 +1,15 @@
+
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); 
+const fs = require('fs');
+
+// Charger .env seulement s'il existe (développement local)
+if (fs.existsSync(path.resolve(__dirname, '../.env'))) {
+    require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+} else {
+    // Sur Render, les variables sont déjà dans les env du système
+    require('dotenv').config();
+}
+
 const { Pool } = require('pg');
 
 const isProduction = process.env.NODE_ENV === 'production';

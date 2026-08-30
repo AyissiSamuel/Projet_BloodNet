@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const db = require('../../config/db');
 const predictionService = require('../services/predictionService');
 const socketConfig = require('../../config/socket');
-const { sendSMSViaAndroid } = require('../services/smsService'); // Assurez-vous d'avoir créé ce service
+const { sendSMS } = require('../services/smsService'); // use standardized sendSMS
 
 // Tâche planifiée 1 : Scan des poches périmées (TOUS LES JOURS À MINUIT)
 cron.schedule('0 0 * * *', async () => {
@@ -66,8 +66,6 @@ cron.schedule('15 0 * * *', async () => {
                     message = `Rupture de stock prévue pour le groupe ${pred.groupe_sanguin} dans environ ${pred.jours_avant_rupture} jour(s), au rythme de consommation actuel.`;
                 } else if (pred.poches_a_risque.length > 0) {
                     typeAlerte = 'SURPLUS_A_RISQUE';
-                    joursEstimes = Math.min(...pred.poches_a_risque.map(p => p.jours_restants));
-                    message = `${pred.poches_a_risque.length} poche(s) de groupe ${pred.groupe_sanguin} risque(nt) d'être perdue(s) par péremption sous ${joursEstimes} jour(s). Un transfert vers un hôpital en besoin est recommandé.`;
                 }
 
                 if (!typeAlerte) continue;
@@ -125,7 +123,7 @@ cron.schedule('0 9 * * *', async () => {
             for (const donneur of donneurs) {
                 const message = `Bonjour ${donneur.nom}, votre dernier don date de plus de 3 mois. Vous pouvez de nouveau donner votre sang et sauver des vies avec BloodNet !`;
                 
-                await sendSMSViaAndroid(donneur.telephone, message);
+                await sendSMS(donneur.telephone, message);
 
                 // Marquer la date de dernière relance pour éviter le spam quotidien
                 await db.query(

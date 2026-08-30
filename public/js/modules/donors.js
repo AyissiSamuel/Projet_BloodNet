@@ -1,6 +1,8 @@
 import { showToast } from './toast.js';
 
+let authToken = null;
 export const initDonorsModule = async (token) => {
+    authToken = token;
     setupDonorEvents(token);
     await fetchDonorsList(token);
     await fetchDonationsHistory(token);
@@ -52,11 +54,10 @@ const renderDonorsTable = (donors) => {
             : `<span class="badge" style="background:#fef3c7; color:#b45309;">Dans ${90 - joursDepuisDernierDon} j</span>`;
 
         // Bouton "Contacter" : n'apparaît que si on a un numéro (pas
-        // anonyme) — ouvre l'application SMS du téléphone avec un message
-        // pré-rempli invitant au rappel. Voir explication complète (SMS
-        // groupés / Firebase) dans le rapport d'audit fourni séparément.
+        // anonyme) — envoie via l'API serveur pour fonctionner depuis desktop
+        // et contrôler l'envoi côté backend. Action réservée aux ADMIN_HOPITAL.
         const boutonContact = (!isAnon && donor.telephone)
-            ? `<button class="btn-sm btn-secondary btn-contact-donor" data-tel="${donor.telephone}" data-nom="${donor.nom_complet}" title="Contacter par SMS">
+            ? `<button class="btn-sm btn-secondary btn-contact-donor" data-id="${donor.id_donneur}" data-tel="${donor.telephone}" data-nom="${donor.nom_complet}" title="Contacter par SMS">
                    <i class="fa-solid fa-comment-sms"></i>
                </button>`
             : '';
@@ -80,18 +81,35 @@ const renderDonorsTable = (donors) => {
         tbody.appendChild(tr);
     });
 
-    // "Contacter" : ouvre l'app SMS native du poste avec un message
-    // pré-rempli. Simple, fonctionne sans aucune configuration ni service
-    // tiers — pertinent pour un projet académique. Pour un envoi groupé
-    // automatisé en production, voir le rapport d'audit (comparatif
-    // Firebase Cloud Messaging / passerelle SMS).
+    // "Contacter" : envoie via l'API serveur (POST /api/donneurs/:id/send-sms)
     document.querySelectorAll(".btn-contact-donor").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const { tel, nom } = e.currentTarget.dataset;
-            const message = encodeURIComponent(
-                `Bonjour ${nom}, votre dernier don de sang remonte à un moment déjà — seriez-vous disponible pour un nouveau don prochainement ? Merci de votre engagement. — BloodNet`
-            );
-            window.open(`sms:${tel}?body=${message}`, '_blank');
+        btn.addEventListener("click", async (e) => {
+            const donorId = e.currentTarget.dataset.id;
+            const tel = e.currentTarget.dataset.tel;
+            const nom = e.currentTarget.dataset.nom;
+            const message = `Bonjour ${nom}, votre dernier don de sang remonte à un moment déjà — seriez-vous disponible pour un nouveau don prochainement ? Merci de votre engagement. — BloodNet`;
+
+            if (!authToken) {
+                showToast('Authentification manquante.', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/donneurs/${donorId}/send-sms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                    body: JSON.stringify({ message })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    showToast('SMS envoyé avec succès.', 'success');
+                } else {
+                    showToast(data.message || 'Impossible d\'envoyer le SMS', 'error');
+                }
+            } catch (err) {
+                console.error('Erreur envoi SMS:', err);
+                showToast('Erreur réseau lors de l\'envoi', 'error');
+            }
         });
     });
 

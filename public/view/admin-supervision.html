@@ -25,10 +25,22 @@
         </div>
     </div>
 
+    <!-- GRAPHIQUE DU STOCK CONSOLIDÉ PAR GROUPE SANGUIN -->
+    <div class="card-box" style="margin-top: 1.5rem;">
+        <div class="table-header">
+            <h3 style="font-size: 1.1rem; color: #1e293b;">
+                <i class="fa-solid fa-chart-bar"></i> Stock Consolidé de la Zone (<span id="selected-region-label">Toutes les Régions</span>)
+            </h3>
+        </div>
+        <div class="card-body" style="position: relative; height: 400px;">
+            <canvas id="stockByGroupChart"></canvas>
+        </div>
+    </div>
+
     <!-- STOCK CONSOLIDÉ RÉGIONAL (CARTES PAR GROUPE SANGUIN) -->
     <div style="margin-top: 1.5rem;">
         <h3 style="font-size: 1.1rem; color: #1e293b; margin-bottom: 0.8rem;">
-            <i class="fa-solid fa-cubes-stacked"></i> Stock Consolidé de la Zone (<span id="selected-region-label">Toutes les Régions</span>)
+            <i class="fa-solid fa-cubes-stacked"></i> Récapitulatif par Groupe
         </h3>
         <div class="blood-group-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem;" id="regional-stock-cards">
             <!-- Rempli dynamiquement en JS (Cartes O+, O-, A+, etc.) -->
